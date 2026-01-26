@@ -1,0 +1,123 @@
+{
+  "name": "sqldoc-electron",
+  "version": "1.0.0",
+  "description": "SQLINFO - Database Documentation Tool",
+  "author": "Mehdi Taubira",
+  "main": "main.js",
+  
+  "scripts": {
+    "start": "electron .",
+    "prebuild": "node prebuild.js",
+    "build": "npm run prebuild && electron-builder --win --x64",
+    "build:win": "npm run prebuild && electron-builder --win --x64",
+    "build:mac": "electron-builder --mac"
+  },
+  
+  "build": {
+    "appId": "com.sqldoc.app",
+    "productName": "SQLINFO",
+    "asar": true,
+    "asarUnpack": [
+      "**/*.exe",
+      "**/*.dll",
+      "**/*.node",
+      "**/*.pem",
+      "php/**",
+      "certs/**"
+    ],
+    "forceCodeSigning": false,
+    "compression": "store",
+    "extraResources": [
+      {
+        "from": "sqldoc-simple",
+        "to": "laravel",
+        "filter": [
+          "**/*",
+          "!node_modules/**/*",
+          "!.git/**/*",
+          "!tests/**/*",
+          "!storage/logs/**/*",
+          "!storage/framework/cache/**/*",
+          "!storage/framework/sessions/**/*",
+          "!vendor/*/tests/**/*",
+          "!vendor/*/*/tests/**/*",
+          "!vendor/phpunit/**/*",
+          "!vendor/mockery/**/*",
+          "!vendor/fakerphp/**/*",
+          "!.env",
+          "!bootstrap/cache/*.php",
+          "!storage/framework/views/**/*",
+          "app/**/*",
+          "bootstrap/**/*",
+          "config/**/*",
+          "database/**/*",
+          "public/**/*",
+          "resources/**/*",
+          "routes/**/*",
+          "storage/app/**/*",
+          "vendor/**/*"
+        ]
+      },
+      {
+          "from": "certs",
+          "to": "certs",
+          "filter": ["**/*"]
+        }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "verifyUpdateCodeSignature": false,
+      "signAndEditExecutable": false,
+      "signExts": [],
+      "extraResources": [
+        {
+          "from": "build/php",
+          "to": "php",
+          "filter": ["**/*"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "perMachine": false,
+      "allowElevation": false,
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "packElevateHelper": false,
+      "differentialPackage": false,
+      "useZip": true
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "build/icon.png"
+    ]
+  },
+  
+  "dependencies": {
+    "axios": "^1.13.2"
+  },
+  
+  "devDependencies": {
+    "electron": "^28.2.10",
+    "electron-builder": "^24.13.3",
+    "fs-extra": "^11.2.0"
+  }
+}
