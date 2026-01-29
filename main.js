@@ -260,7 +260,7 @@ function getAppKey() {
   if (!appKey) {
     const crypto = require('crypto');
     appKey = `base64:${crypto.randomBytes(32).toString('base64')}`;
-    log('⚠️  Generated new APP_KEY');
+    log('Generated new APP_KEY');
   }
   
   return appKey;
@@ -552,7 +552,7 @@ app.on('ready', () => {
         if (error.stderr) log('   stderr: ' + error.stderr);
         
         // On continue même si les migrations échouent (peut-être déjà exécutées)
-        log('⚠️  Continuing despite migration error...');
+        log('⚠️ Continuing despite migration error...');
       }
     } else {
       log('✅ Migrations already done');
