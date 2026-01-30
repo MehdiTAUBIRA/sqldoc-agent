@@ -95,9 +95,7 @@
                                 <InputLabel for="port" value="Port" />
                                 <TextInput
                                     id="port"
-                                    type="number"
-                                    min="1"
-                                    max="65535"
+                                    type="text"
                                     class="mt-1 block w-full"
                                     v-model="form.port"
                                     required
@@ -178,7 +176,7 @@
                                 <InputError class="mt-2" :message="form.errors.password" />
                             </div>
 
-                            <!--  ID ajouté -->
+                            <!-- ✅ ID ajouté -->
                             <div class="mb-4">
                                 <InputLabel for="description" value="Description (optional)" />
                                 <TextareaInput
@@ -193,8 +191,8 @@
                             </div>
 
                             <div class="flex items-center justify-between mt-6">
-                                <!--  ID ajouté -->
-                                <!-- <button
+                                <!-- ✅ ID ajouté -->
+                                <button
                                     id="test-connection-button"
                                     type="button"
                                     @click="testConnection"
@@ -202,7 +200,7 @@
                                     class="inline-flex items-center px-4 py-2 bg-gray-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 active:bg-gray-900 focus:outline-none focus:border-gray-900 focus:ring ring-gray-300 disabled:opacity-25 transition ease-in-out duration-150"
                                 >
                                     Test Connection
-                                </button> -->
+                                </button>
                                 
                                 <!-- ✅ ID ajouté -->
                                 <PrimaryButton 
@@ -270,42 +268,43 @@ import TextInput from '@/Components/TextInput.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextareaInput from '@/Components/TextareaInput.vue';
-import { useDriver } from '@/Composables/useDriver.js';
+import { useDriver } from '@/Composables/useDriver.js'; // Import
 
-const { showConnectProjectGuide } = useDriver();
+const { showConnectProjectGuide } = useDriver(); // Récupération de la fonction
 
 const props = defineProps({
     project: Object
 });
 
 const page = usePage();
-
 const authMode = ref(props.project.db_type === 'sqlserver' ? 'windows' : 'sql');
 const showToast = ref(false);
 const toastMessage = ref('');
 const toastType = ref('error');
 
-
 const getDefaultPort = () => {
     const ports = {
-        mysql: '3306',
-        pgsql: '5432',
-        sqlserver: '1433'
+        'mysql': '3306',
+        'pgsql': '5432',
+        'sqlserver': '1433'
     };
     return ports[props.project.db_type] || '1433';
 };
 
-const getPortPlaceholder = () => `e.g., ${getDefaultPort()}`;
+// ✅ Fonction pour le placeholder
+const getPortPlaceholder = () => {
+    return `e.g., ${getDefaultPort()}`;
+};
 
+// ✅ Fonction pour l'info du port
 const getPortInfo = () => {
     const portInfo = {
-        mysql: 'Default MySQL port: 3306',
-        pgsql: 'Default PostgreSQL port: 5432',
-        sqlserver: 'Default SQL Server port: 1433'
+        'mysql': 'Default MySQL port: 3306',
+        'pgsql': 'Default PostgreSQL port: 5432',
+        'sqlserver': 'Default SQL Server port: 1433'
     };
     return portInfo[props.project.db_type] || 'Enter the database port';
 };
-
 
 const form = useForm({
     server: '',
@@ -317,64 +316,101 @@ const form = useForm({
     description: ''
 });
 
+// Fonction pour relancer le tutoriel
+const restartTutorial = () => {
+    localStorage.removeItem('connect_project_tutorial_shown');
+    showConnectProjectGuide(props.project.db_type);
+};
 
-watch(authMode, (value) => {
-    form.authMode = value;
-});
-
-
-watch(
-    () => page.props.flash,
-    (flash) => {
-        if (flash?.error) showErrorToast(flash.error);
-        if (flash?.success) showSuccessToast(flash.success);
-        if (flash?.warning) showWarningToast(flash.warning);
-        if (flash?.info) showWarningToast(flash.info);
-    },
-    { immediate: true, deep: true }
-);
+// Surveiller les messages flash
+watch(() => page.props.flash, (flash) => {
+    console.log('Flash message reçu:', flash);
+    
+    if (flash?.error) {
+        showErrorToast(flash.error);
+    }
+    if (flash?.success) {
+        showSuccessToast(flash.success);
+    }
+    if (flash?.warning) {
+        showWarningToast(flash.warning);
+    }
+    if (flash?.info) {
+        showWarningToast(flash.info);
+    }
+}, { immediate: true, deep: true });
 
 const showAuthFields = computed(() => {
-    return (
-        props.project.db_type !== 'sqlserver' ||
-        authMode.value === 'sql'
-    );
+    return props.project.db_type !== 'sqlserver' || (props.project.db_type === 'sqlserver' && authMode.value === 'sql');
 });
 
-
 const submit = () => {
-    // SQL Server Windows Auth → do not send credentials
-    if (props.project.db_type === 'sqlserver' && authMode.value === 'windows') {
-        form.username = null;
-        form.password = null;
-    }
+    console.log('=== DÉBUT SUBMIT ===');
+    console.log('Form data:', {
+        server: form.server,
+        database: form.database,
+        port: form.port,
+        authMode: form.authMode,
+        username: form.username,
+        db_type: props.project.db_type
+    });
 
     form.post(route('projects.handle-connect', props.project.id), {
+        onStart: () => {
+            console.log('onStart: Début de la requête');
+        },
         onSuccess: (page) => {
+            console.log('onSuccess appelé:', page);
+            console.log('Flash props:', page.props.flash);
+            
+            if (page.props.flash?.error) {
+                console.log('Error detected in onSuccess:', page.props.flash.error);
+                showErrorToast(page.props.flash.error);
+                return; 
+            }
+            
             if (page.props.flash?.success) {
+                console.log('Succès détecté:', page.props.flash.success);
                 showSuccessToast(page.props.flash.success);
             } else {
+                console.log('Succès par défaut');
                 showSuccessToast('Connection successful!');
             }
         },
-
         onError: (errors) => {
+            console.log('onError appelé:', errors);
+            
             if (typeof errors === 'string') {
                 showErrorToast(errors);
                 return;
             }
-
-            const firstError = Object.values(errors)[0];
-
-            if (Array.isArray(firstError)) {
-                showErrorToast(firstError[0]);
+            
+            if (errors.server) {
+                showErrorToast(`Server error: ${errors.server}`);
+            } else if (errors.database) {
+                showErrorToast(`Database error: ${errors.database}`);
+            } else if (errors.username) {
+                showErrorToast(`Username error: ${errors.username}`);
+            } else if (errors.password) {
+                showErrorToast(`Password error: ${errors.password}`);
+            } else if (errors.port) {
+                showErrorToast(`Port error: ${errors.port}`);
+            } else if (errors.authMode) {
+                showErrorToast(`Authentication mode error: ${errors.authMode}`);
             } else {
-                showErrorToast(firstError || 'Connection failed. Please try again.');
+                const firstError = Object.values(errors)[0];
+                if (Array.isArray(firstError)) {
+                    showErrorToast(firstError[0]);
+                } else {
+                    showErrorToast(firstError || 'Connection failed. Please check your parameters and try again.');
+                }
             }
+        },
+        onFinish: () => {
+            console.log('onFinish: Request done');
         }
     });
 };
-
 
 const showErrorToast = (message) => {
     toastMessage.value = message;
@@ -399,34 +435,140 @@ const showWarningToast = (message) => {
 
 const hideToast = () => {
     showToast.value = false;
-    setTimeout(() => (toastMessage.value = ''), 300);
+    setTimeout(() => {
+        toastMessage.value = '';
+    }, 300);
 };
 
 const autoHideToast = () => {
-    setTimeout(hideToast, 5000);
+    setTimeout(() => {
+        hideToast();
+    }, 5000);
 };
 
 const getDbTypeName = (type) => {
     const types = {
-        mysql: 'MySQL',
-        sqlserver: 'SQL Server',
-        pgsql: 'PostgreSQL'
+        'mysql': 'MySQL',
+        'sqlserver': 'SQL Server',
+        'pgsql': 'PostgreSQL'
     };
     return types[type] || type;
 };
 
 const updateAuthMode = (value) => {
+    form.authMode = value;
     authMode.value = value;
 };
 
-const restartTutorial = () => {
-    localStorage.removeItem('connect_project_tutorial_shown');
-    showConnectProjectGuide(props.project.db_type);
+const testConnection = async () => {
+    if (!form.server || !form.database) {
+        showWarningToast('Please fill in server and database fields before testing.');
+        return;
+    }
+    
+    if (showAuthFields.value && (!form.username || !form.password)) {
+        showWarningToast('Please fill in username and password before testing.');
+        return;
+    }
+    
+    showWarningToast('Testing connection...');
+    
+    try {
+        const response = await fetch(route('projects.test-connection', props.project.id), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                server: form.server,
+                database: form.database,
+                port: form.port,
+                authMode: form.authMode,
+                username: form.username,
+                password: form.password
+            })
+        });
+        
+        if (!response.ok) {
+            if (response.status === 419) {
+                throw new Error('CSRF token mismatch. Please refresh the page and try again.');
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessToast('Connection test successful! You can now connect.');
+        } else {
+            showErrorToast(result.error || 'Connection test failed.');
+        }
+    } catch (error) {
+        console.error('Test connection error:', error);
+        
+        if (error.message.includes('CSRF')) {
+            showErrorToast('Security token expired. Please refresh the page and try again.');
+        } else {
+            showErrorToast('Unable to test connection. Please try connecting directly.');
+        }
+    }
 };
 
+const getToastClasses = computed(() => {
+    const baseClasses = 'fixed top-4 right-4 z-50 max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden transform transition-all duration-300 ease-in-out';
+    
+    if (!showToast.value) {
+        return baseClasses + ' translate-x-full opacity-0';
+    }
+    
+    return baseClasses + ' translate-x-0 opacity-100';
+});
+
+const getToastIconAndColor = computed(() => {
+    switch (toastType.value) {
+        case 'success':
+            return {
+                icon: 'M5 13l4 4L19 7',
+                bgColor: 'bg-green-50',
+                iconColor: 'text-green-400',
+                titleColor: 'text-green-800',
+                messageColor: 'text-green-700'
+            };
+        case 'error':
+            return {
+                icon: 'M6 18L18 6M6 6l12 12',
+                bgColor: 'bg-red-50',
+                iconColor: 'text-red-400',
+                titleColor: 'text-red-800',
+                messageColor: 'text-red-700'
+            };
+        case 'warning':
+            return {
+                icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
+                bgColor: 'bg-yellow-50',
+                iconColor: 'text-yellow-400',
+                titleColor: 'text-yellow-800',
+                messageColor: 'text-yellow-700'
+            };
+        default:
+            return {
+                icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+                bgColor: 'bg-blue-50',
+                iconColor: 'text-blue-400',
+                titleColor: 'text-blue-800',
+                messageColor: 'text-blue-700'
+            };
+    }
+});
+
+// Lancer le tutoriel au montage
 onMounted(() => {
     const tutorialShown = localStorage.getItem('connect_project_tutorial_shown');
-
+    
     if (!tutorialShown) {
         setTimeout(() => {
             showConnectProjectGuide(props.project.db_type);

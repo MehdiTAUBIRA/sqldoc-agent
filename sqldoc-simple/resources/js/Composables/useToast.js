@@ -12,7 +12,7 @@ const addToast = (toastOptions) => {
     id,
     type: 'info',
     message: '',
-    duration: 5000,
+    duration: 10000,
     visible: false
   }
 
@@ -46,13 +46,13 @@ const removeToast = (id) => {
 const success = (message, duration = 5000) =>
   addToast({ type: 'success', message, duration })
 
-const error = (message, duration = 7000) =>
+const error = (message, duration = 10000) =>
   addToast({ type: 'error', message, duration })
 
-const info = (message, duration = 5000) =>
+const info = (message, duration = 8000) =>
   addToast({ type: 'info', message, duration })
 
-const warning = (message, duration = 6000) =>
+const warning = (message, duration = 10000) =>
   addToast({ type: 'warning', message, duration })
 
 const confirmToast = ({ message, onConfirm, onCancel }) =>
