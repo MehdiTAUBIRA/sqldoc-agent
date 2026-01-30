@@ -18,8 +18,7 @@ class SyncProjectToWebJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected $dbDescriptionId;
-    
-    // ✅ Configuration des tailles de batch
+
     protected const BATCH_SIZE_TABLES = 50;
     protected const BATCH_SIZE_COLUMNS = 100;
     protected const BATCH_SIZE_INDEXES = 100;
@@ -36,14 +35,10 @@ class SyncProjectToWebJob implements ShouldQueue
     protected const BATCH_SIZE_TRIGGERS = 50;
     protected const BATCH_SIZE_TRIGGER_INFO = 50;
     
-    // ✅ Timeout augmenté pour les gros projets
-    public $timeout = 3600; // 1 heure
-    
-    // ✅ Nombre de tentatives
-    public $tries = 3;
-    
-    // ✅ Délai entre les batches (microsecondes)
     protected const DELAY_BETWEEN_BATCHES = 500000; // 0.5 seconde
+
+    public $timeout = 3600;
+    public $tries = 3;
 
     public function __construct(int $dbDescriptionId)
     {
@@ -66,12 +61,27 @@ class SyncProjectToWebJob implements ShouldQueue
         }
 
         try {
-            // ✅ Charger SEULEMENT le DbDescription (sans relations eager loading)
-            $dbDescription = DbDescription::findOrFail($this->dbDescriptionId);
+            $dbDescription = DbDescription::with([
+                'tableDescriptions.structures',
+                'tableDescriptions.indexes',
+                'tableDescriptions.relations',
+                'viewDescriptions.columns',
+                'viewDescriptions.information',
+                'functionDescriptions.information',
+                'functionDescriptions.parameters',
+                'psDescriptions.information',
+                'psDescriptions.parameters',
+                'triggerDescriptions.information',
+            ])->findOrFail($this->dbDescriptionId);
 
-            Log::info('📦 DbDescription chargé', [
+            Log::info('📦 DbDescription chargé avec relations', [
                 'dbname' => $dbDescription->dbname,
                 'project_id' => $dbDescription->project_id,
+                'tables' => $dbDescription->tableDescriptions->count(),
+                'views' => $dbDescription->viewDescriptions->count(),
+                'functions' => $dbDescription->functionDescriptions->count(),
+                'procedures' => $dbDescription->psDescriptions->count(),
+                'triggers' => $dbDescription->triggerDescriptions->count(),
             ]);
 
             // ÉTAPE 0 : Synchroniser le projet parent (si existe)
@@ -82,7 +92,7 @@ class SyncProjectToWebJob implements ShouldQueue
             // ÉTAPE 1 : Synchroniser le db_description
             $this->syncProject($apiService, $dbDescription);
 
-            // ÉTAPE 2 : Synchroniser toutes les entités par chunks
+            // ÉTAPE 2 : Synchroniser toutes les entités en batch avec chunking
             $this->syncTablesBatch($apiService, $dbDescription);
             $this->syncViewsBatch($apiService, $dbDescription);
             $this->syncFunctionsBatch($apiService, $dbDescription);
@@ -139,7 +149,7 @@ class SyncProjectToWebJob implements ShouldQueue
                 'project_name' => $project->name ?? 'N/A',
             ]);
 
-            $response = $apiService->post('/api/sync/project-parent', [
+            $response = $apiService->post('/api/project-parents', [
                 'name' => $project->name ?? null,
                 'description' => $project->description ?? null,
                 'user_id' => $project->user_id ?? null,
@@ -184,7 +194,7 @@ class SyncProjectToWebJob implements ShouldQueue
                 $remoteProjectId = SyncMapping::getRemoteId('project', $dbDescription->project_id);
             }
 
-            $response = $apiService->post('/api/sync/project', [
+            $response = $apiService->post('/api/projects', [
                 'user_id' => $dbDescription->user_id,
                 'dbname' => $dbDescription->dbname,
                 'description' => $dbDescription->description,
@@ -210,7 +220,7 @@ class SyncProjectToWebJob implements ShouldQueue
     }
 
     /**
-     * ✅ Synchroniser les tables par chunks
+     * ✅ Synchroniser les tables avec chunking
      */
     protected function syncTablesBatch(ApiService $apiService, DbDescription $dbDescription)
     {
@@ -221,526 +231,274 @@ class SyncProjectToWebJob implements ShouldQueue
             return;
         }
 
-        // ✅ Compter d'abord
-        $totalTables = DB::table('table_descriptions')
-            ->where('dbid', $dbDescription->id)
-            ->count();
+        $tables = $dbDescription->tableDescriptions;
         
-        if ($totalTables === 0) {
+        if ($tables->isEmpty()) {
             Log::info('⚠️ No tables to sync');
             return;
         }
         
-        Log::info(' Total tables to sync', ['count' => $totalTables]);
+        Log::info('📊 Total tables to sync', ['count' => $tables->count()]);
 
+        // ✅ Diviser en chunks
+        $chunks = $tables->chunk(self::BATCH_SIZE_TABLES);
         $processedTables = 0;
 
-        // ✅ Traiter par chunks
-        DB::table('table_descriptions')
-            ->where('dbid', $dbDescription->id)
-            ->orderBy('id')
-            ->chunk(self::BATCH_SIZE_TABLES, function ($tables) use ($apiService, $remoteDbId, &$processedTables, $totalTables) {
+        foreach ($chunks as $chunkIndex => $tableChunk) {
+            $tablesData = [];
+            
+            foreach ($tableChunk as $table) {
+                $tablesData[] = [
+                    'local_id' => $table->id,
+                    'dbid' => $remoteDbId,
+                    'tablename' => $table->tablename,
+                    'language' => $table->language,
+                    'description' => $table->description,
+                ];
+            }
+
+            $processedTables += count($tablesData);
+            
+            Log::info('📤 Sending tables batch', [
+                'batch' => ($chunkIndex + 1) . '/' . $chunks->count(),
+                'count' => count($tablesData),
+                'progress' => round(($processedTables / $tables->count()) * 100, 1) . '%',
+            ]);
+            
+            try {
+                $response = $apiService->post('/api/batch/tables', [
+                    'tables' => $tablesData,
+                ]);
+
+                $results = $response['results'] ?? [];
                 
-                $tablesData = [];
-                
-                foreach ($tables as $table) {
-                    $tablesData[] = [
-                        'local_id' => $table->id,
-                        'dbid' => $remoteDbId,
-                        'tablename' => $table->tablename,
-                        'language' => $table->language,
-                        'description' => $table->description,
-                    ];
+                foreach ($results as $result) {
+                    if ($result['success'] && isset($result['local_id'], $result['remote_id'])) {
+                        SyncMapping::saveMapping('table', $result['local_id'], $result['remote_id']);
+                    }
                 }
 
-                $processedTables += count($tablesData);
-                
-                Log::info('📤 Sending tables batch', [
-                    'count' => count($tablesData),
-                    'progress' => round(($processedTables / $totalTables) * 100, 1) . '%',
+                $successCount = count(array_filter($results, fn($r) => $r['success']));
+                Log::info('✅ Tables batch synced', [
+                    'success' => $successCount,
+                    'total' => count($tablesData),
                 ]);
                 
-                try {
-                    $response = $apiService->post('/api/sync/tables/batch', [
-                        'tables' => $tablesData,
-                    ]);
-
-                    $results = $response['results'] ?? [];
-                    
-                    // Sauvegarder les mappings
-                    foreach ($results as $result) {
-                        if ($result['success'] && isset($result['local_id'], $result['remote_id'])) {
-                            SyncMapping::saveMapping('table', $result['local_id'], $result['remote_id']);
-                        }
-                    }
-
-                    $successCount = count(array_filter($results, fn($r) => $r['success']));
-                    Log::info('✅ Tables batch synced', [
-                        'success' => $successCount,
-                        'total' => count($tablesData),
-                    ]);
-                    
-                    // ✅ Délai entre les batches
-                    usleep(self::DELAY_BETWEEN_BATCHES);
-                    
-                } catch (\Exception $e) {
-                    Log::error('❌ Failed to sync tables batch', [
-                        'error' => $e->getMessage(),
-                    ]);
-                    throw $e;
-                }
-            });
+                usleep(self::DELAY_BETWEEN_BATCHES);
+                
+            } catch (\Exception $e) {
+                Log::error('❌ Failed to sync tables batch', [
+                    'batch' => ($chunkIndex + 1),
+                    'error' => $e->getMessage(),
+                ]);
+                throw $e;
+            }
+        }
 
         Log::info('✅ All tables synced', ['total' => $processedTables]);
 
-        // ✅ Synchroniser les détails APRÈS toutes les tables
+        // Synchroniser les détails
         $this->syncTableDetailsBatch($apiService, $dbDescription);
     }
 
     /**
-     * ✅ Synchroniser les détails des tables par chunks
+     * ✅ Synchroniser les détails des tables avec chunking
      */
     protected function syncTableDetailsBatch(ApiService $apiService, DbDescription $dbDescription)
     {
-        // ✅ Récupérer les IDs des tables locales
-        $tableIds = DB::table('table_descriptions')
-            ->where('dbid', $dbDescription->id)
-            ->pluck('id');
+        Log::info('🔧 Syncing table details');
 
-        Log::info(' Syncing table details', ['tables' => $tableIds->count()]);
+        $allColumns = [];
+        $allIndexes = [];
+        $allRelations = [];
 
-        // ✅ COLONNES par batch
-        $this->syncColumnsInBatches($apiService, $tableIds);
-        
-        // ✅ INDEXES par batch
-        $this->syncIndexesInBatches($apiService, $tableIds);
-        
-        // ✅ RELATIONS par batch
-        $this->syncRelationsInBatches($apiService, $tableIds);
-    }
+        // Collecter toutes les données
+        foreach ($dbDescription->tableDescriptions as $table) {
+            $remoteTableId = SyncMapping::getRemoteId('table', $table->id);
+            
+            if (!$remoteTableId) {
+                Log::warning('⚠️ Remote table ID not found', ['table' => $table->tablename]);
+                continue;
+            }
 
-    /**
-     * ✅ Synchroniser les colonnes par batches
-     */
-    protected function syncColumnsInBatches(ApiService $apiService, $tableIds)
-    {
-        $totalColumns = DB::table('table_structures')
-            ->whereIn('id_table', $tableIds)
-            ->count();
-        
-        if ($totalColumns === 0) {
-            Log::info('⚠️ No columns to sync');
-            return;
+            // Colonnes
+            foreach ($table->structures as $column) {
+                $allColumns[] = [
+                    'id_table' => $remoteTableId,
+                    'column' => $column->column,
+                    'type' => $column->type,
+                    'nullable' => $column->nullable,
+                    'key' => $column->key,
+                    'description' => $column->description,
+                    'rangevalues' => $column->rangevalues,
+                    'release_id' => $column->release_id,
+                ];
+            }
+
+            // Indexes
+            foreach ($table->indexes as $index) {
+                $allIndexes[] = [
+                    'id_table' => $remoteTableId,
+                    'name' => $index->name,
+                    'type' => $index->type,
+                    'column' => $index->column,
+                    'properties' => $index->properties,
+                ];
+            }
+
+            // Relations
+            foreach ($table->relations as $relation) {
+                $allRelations[] = [
+                    'id_table' => $remoteTableId,
+                    'constraints' => $relation->constraints,
+                    'column' => $relation->column,
+                    'referenced_table' => $relation->referenced_table,
+                    'referenced_column' => $relation->referenced_column,
+                    'action' => $relation->action,
+                ];
+            }
         }
-        
-        Log::info(' Total columns to sync', ['count' => $totalColumns]);
 
-        $processedColumns = 0;
-
-        DB::table('table_structures')
-            ->whereIn('id_table', $tableIds)
-            ->orderBy('id')
-            ->chunk(self::BATCH_SIZE_COLUMNS, function ($columns) use ($apiService, &$processedColumns, $totalColumns) {
-                
-                $columnsData = [];
-                
-                foreach ($columns as $column) {
-                    // ✅ Mapper l'ID de table local → remote
-                    $remoteTableId = SyncMapping::getRemoteId('table', $column->id_table);
-                    
-                    if (!$remoteTableId) {
-                        Log::warning('⚠️ Remote table ID not found', ['table_id' => $column->id_table]);
-                        continue;
-                    }
-
-                    $columnsData[] = [
-                        'id_table' => $remoteTableId,
-                        'column' => $column->column,
-                        'type' => $column->type,
-                        'nullable' => $column->nullable,
-                        'key' => $column->key,
-                        'description' => $column->description,
-                        'rangevalues' => $column->rangevalues,
-                        'release_id' => $column->release_id,
-                    ];
-                }
-
-                if (empty($columnsData)) {
-                    return;
-                }
-
-                $processedColumns += count($columnsData);
-                
-                Log::info('📤 Sending columns batch', [
-                    'count' => count($columnsData),
-                    'progress' => round(($processedColumns / $totalColumns) * 100, 1) . '%',
-                ]);
-                
-                try {
-                    $apiService->post('/api/sync/columns/batch', ['columns' => $columnsData]);
-                    usleep(self::DELAY_BETWEEN_BATCHES);
-                } catch (\Exception $e) {
-                    Log::error('❌ Failed to sync columns batch', ['error' => $e->getMessage()]);
-                    throw $e;
-                }
-            });
-        
-        Log::info('✅ All columns synced', ['total' => $processedColumns]);
-    }
-
-    /**
-     * ✅ Synchroniser les indexes par batches
-     */
-    protected function syncIndexesInBatches(ApiService $apiService, $tableIds)
-    {
-        $totalIndexes = DB::table('table_indexes')
-            ->whereIn('id_table', $tableIds)
-            ->count();
-        
-        if ($totalIndexes === 0) {
-            Log::info('⚠️ No indexes to sync');
-            return;
+        // ✅ Envoyer par chunks avec helper
+        if (!empty($allColumns)) {
+            $this->sendInBatches($apiService, '/api/batch/columns', 'columns', $allColumns, self::BATCH_SIZE_COLUMNS);
         }
-        
-        Log::info(' Total indexes to sync', ['count' => $totalIndexes]);
 
-        $processedIndexes = 0;
-
-        DB::table('table_indexes')
-            ->whereIn('id_table', $tableIds)
-            ->orderBy('id')
-            ->chunk(self::BATCH_SIZE_INDEXES, function ($indexes) use ($apiService, &$processedIndexes, $totalIndexes) {
-                
-                $indexesData = [];
-                
-                foreach ($indexes as $index) {
-                    $remoteTableId = SyncMapping::getRemoteId('table', $index->id_table);
-                    
-                    if (!$remoteTableId) {
-                        continue;
-                    }
-
-                    $indexesData[] = [
-                        'id_table' => $remoteTableId,
-                        'name' => $index->name,
-                        'type' => $index->type,
-                        'column' => $index->column,
-                        'properties' => $index->properties,
-                    ];
-                }
-
-                if (empty($indexesData)) {
-                    return;
-                }
-
-                $processedIndexes += count($indexesData);
-                
-                Log::info('📤 Sending indexes batch', [
-                    'count' => count($indexesData),
-                    'progress' => round(($processedIndexes / $totalIndexes) * 100, 1) . '%',
-                ]);
-                
-                try {
-                    $apiService->post('/api/sync/indexes/batch', ['indexes' => $indexesData]);
-                    usleep(self::DELAY_BETWEEN_BATCHES);
-                } catch (\Exception $e) {
-                    Log::error('❌ Failed to sync indexes batch', ['error' => $e->getMessage()]);
-                    throw $e;
-                }
-            });
-        
-        Log::info('✅ All indexes synced', ['total' => $processedIndexes]);
-    }
-
-    /**
-     * ✅ Synchroniser les relations par batches
-     */
-    protected function syncRelationsInBatches(ApiService $apiService, $tableIds)
-    {
-        $totalRelations = DB::table('table_relations')
-            ->whereIn('id_table', $tableIds)
-            ->count();
-        
-        if ($totalRelations === 0) {
-            Log::info('⚠️ No relations to sync');
-            return;
+        if (!empty($allIndexes)) {
+            $this->sendInBatches($apiService, '/api/batch/indexes', 'indexes', $allIndexes, self::BATCH_SIZE_INDEXES);
         }
-        
-        Log::info(' Total relations to sync', ['count' => $totalRelations]);
 
-        $processedRelations = 0;
-
-        DB::table('table_relations')
-            ->whereIn('id_table', $tableIds)
-            ->orderBy('id')
-            ->chunk(self::BATCH_SIZE_RELATIONS, function ($relations) use ($apiService, &$processedRelations, $totalRelations) {
-                
-                $relationsData = [];
-                
-                foreach ($relations as $relation) {
-                    $remoteTableId = SyncMapping::getRemoteId('table', $relation->id_table);
-                    
-                    if (!$remoteTableId) {
-                        continue;
-                    }
-
-                    $relationsData[] = [
-                        'id_table' => $remoteTableId,
-                        'constraints' => $relation->constraints,
-                        'column' => $relation->column,
-                        'referenced_table' => $relation->referenced_table,
-                        'referenced_column' => $relation->referenced_column,
-                        'action' => $relation->action,
-                    ];
-                }
-
-                if (empty($relationsData)) {
-                    return;
-                }
-
-                $processedRelations += count($relationsData);
-                
-                Log::info('📤 Sending relations batch', [
-                    'count' => count($relationsData),
-                    'progress' => round(($processedRelations / $totalRelations) * 100, 1) . '%',
-                ]);
-                
-                try {
-                    $apiService->post('/api/sync/relations/batch', ['relations' => $relationsData]);
-                    usleep(self::DELAY_BETWEEN_BATCHES);
-                } catch (\Exception $e) {
-                    Log::error('❌ Failed to sync relations batch', ['error' => $e->getMessage()]);
-                    throw $e;
-                }
-            });
-        
-        Log::info('✅ All relations synced', ['total' => $processedRelations]);
+        if (!empty($allRelations)) {
+            $this->sendInBatches($apiService, '/api/batch/relations', 'relations', $allRelations, self::BATCH_SIZE_RELATIONS);
+        }
     }
 
     /**
-     * ✅ Synchroniser les vues par chunks
+     * ✅ Synchroniser les vues avec chunking
      */
     protected function syncViewsBatch(ApiService $apiService, DbDescription $dbDescription)
     {
         $remoteDbId = SyncMapping::getRemoteId('db_description', $dbDescription->id);
         
         if (!$remoteDbId) {
+            Log::error('❌ Remote DB ID not found');
             return;
         }
 
-        $totalViews = DB::table('view_descriptions')
-            ->where('dbid', $dbDescription->id)
-            ->count();
+        $views = $dbDescription->viewDescriptions;
         
-        if ($totalViews === 0) {
+        if ($views->isEmpty()) {
             Log::info('⚠️ No views to sync');
             return;
         }
         
-        Log::info(' Total views to sync', ['count' => $totalViews]);
+        Log::info('📊 Total views to sync', ['count' => $views->count()]);
 
+        $chunks = $views->chunk(self::BATCH_SIZE_VIEWS);
         $processedViews = 0;
 
-        DB::table('view_descriptions')
-            ->where('dbid', $dbDescription->id)
-            ->orderBy('id')
-            ->chunk(self::BATCH_SIZE_VIEWS, function ($views) use ($apiService, $remoteDbId, &$processedViews, $totalViews) {
-                
-                $viewsData = [];
-                
-                foreach ($views as $view) {
-                    $viewsData[] = [
-                        'local_id' => $view->id,
-                        'dbid' => $remoteDbId,
-                        'viewname' => $view->viewname,
-                        'language' => $view->language,
-                        'description' => $view->description,
-                    ];
-                }
+        foreach ($chunks as $chunkIndex => $viewChunk) {
+            $viewsData = [];
+            
+            foreach ($viewChunk as $view) {
+                $viewsData[] = [
+                    'local_id' => $view->id,
+                    'dbid' => $remoteDbId,
+                    'viewname' => $view->viewname,
+                    'language' => $view->language,
+                    'description' => $view->description,
+                ];
+            }
 
-                $processedViews += count($viewsData);
-                
-                Log::info('📤 Sending views batch', [
-                    'count' => count($viewsData),
-                    'progress' => round(($processedViews / $totalViews) * 100, 1) . '%',
-                ]);
-                
-                try {
-                    $response = $apiService->post('/api/sync/views/batch', ['views' => $viewsData]);
+            $processedViews += count($viewsData);
+            
+            Log::info('📤 Sending views batch', [
+                'batch' => ($chunkIndex + 1) . '/' . $chunks->count(),
+                'count' => count($viewsData),
+                'progress' => round(($processedViews / $views->count()) * 100, 1) . '%',
+            ]);
+            
+            try {
+                $response = $apiService->post('/api/batch/views', ['views' => $viewsData]);
 
-                    $results = $response['results'] ?? [];
-                    
-                    foreach ($results as $result) {
-                        if ($result['success'] && isset($result['local_id'], $result['remote_id'])) {
-                            SyncMapping::saveMapping('view', $result['local_id'], $result['remote_id']);
-                        }
+                $results = $response['results'] ?? [];
+                
+                foreach ($results as $result) {
+                    if ($result['success'] && isset($result['local_id'], $result['remote_id'])) {
+                        SyncMapping::saveMapping('view', $result['local_id'], $result['remote_id']);
                     }
-
-                    usleep(self::DELAY_BETWEEN_BATCHES);
-                    
-                } catch (\Exception $e) {
-                    Log::error('❌ Failed to sync views batch', ['error' => $e->getMessage()]);
-                    throw $e;
                 }
-            });
+
+                usleep(self::DELAY_BETWEEN_BATCHES);
+                
+            } catch (\Exception $e) {
+                Log::error('❌ Failed to sync views batch', [
+                    'batch' => ($chunkIndex + 1),
+                    'error' => $e->getMessage()
+                ]);
+                throw $e;
+            }
+        }
 
         Log::info('✅ All views synced', ['total' => $processedViews]);
 
-        // Synchroniser les détails des vues
         $this->syncViewDetailsBatch($apiService, $dbDescription);
     }
 
     /**
-     * ✅ Synchroniser les détails des vues en batch
+     * ✅ Synchroniser les détails des vues avec chunking
      */
     protected function syncViewDetailsBatch(ApiService $apiService, DbDescription $dbDescription)
     {
-        $viewIds = DB::table('view_descriptions')
-            ->where('dbid', $dbDescription->id)
-            ->pluck('id');
+        Log::info('🔧 Syncing view details');
 
-        Log::info(' Syncing view details', ['views' => $viewIds->count()]);
+        $allColumns = [];
+        $allInformation = [];
 
-        // Colonnes des vues
-        $this->syncViewColumnsInBatches($apiService, $viewIds);
-        
-        // Information des vues
-        $this->syncViewInformationInBatches($apiService, $viewIds);
-    }
+        foreach ($dbDescription->viewDescriptions as $view) {
+            $remoteViewId = SyncMapping::getRemoteId('view', $view->id);
+            
+            if (!$remoteViewId) {
+                continue;
+            }
 
-    /**
-     * ✅ Synchroniser les colonnes des vues par batches
-     */
-    protected function syncViewColumnsInBatches(ApiService $apiService, $viewIds)
-    {
-        $totalColumns = DB::table('view_columns')
-            ->whereIn('id_view', $viewIds)
-            ->count();
-        
-        if ($totalColumns === 0) {
-            Log::info('⚠️ No view columns to sync');
-            return;
+            // Colonnes
+            foreach ($view->columns as $column) {
+                $allColumns[] = [
+                    'id_view' => $remoteViewId,
+                    'name' => $column->name,
+                    'type' => $column->type,
+                    'is_nullable' => $column->is_nullable,
+                    'max_lengh' => $column->max_lengh,
+                    'description' => $column->description,
+                    'precision' => $column->precision,
+                    'scale' => $column->scale,
+                ];
+            }
+
+            // Information
+            if ($view->information) {
+                $allInformation[] = [
+                    'id_view' => $remoteViewId,
+                    'schema_name' => $view->information->schema_name,
+                    'definition' => $view->information->definition,
+                    'creation_date' => $this->formatDate($view->information->creation_date),
+                    'last_change_date' => $this->formatDate($view->information->last_change_date),
+                ];
+            }
         }
-        
-        Log::info(' Total view columns to sync', ['count' => $totalColumns]);
 
-        $processedColumns = 0;
-
-        DB::table('view_columns')
-            ->whereIn('id_view', $viewIds)
-            ->orderBy('id')
-            ->chunk(self::BATCH_SIZE_VIEW_COLUMNS, function ($columns) use ($apiService, &$processedColumns, $totalColumns) {
-                
-                $columnsData = [];
-                
-                foreach ($columns as $column) {
-                    $remoteViewId = SyncMapping::getRemoteId('view', $column->id_view);
-                    
-                    if (!$remoteViewId) {
-                        continue;
-                    }
-
-                    $columnsData[] = [
-                        'id_view' => $remoteViewId,
-                        'name' => $column->name,
-                        'type' => $column->type,
-                        'is_nullable' => $column->is_nullable,
-                        'max_lengh' => $column->max_lengh,
-                        'description' => $column->description,
-                        'precision' => $column->precision,
-                        'scale' => $column->scale,
-                    ];
-                }
-
-                if (empty($columnsData)) {
-                    return;
-                }
-
-                $processedColumns += count($columnsData);
-                
-                Log::info('📤 Sending view columns batch', [
-                    'count' => count($columnsData),
-                    'progress' => round(($processedColumns / $totalColumns) * 100, 1) . '%',
-                ]);
-                
-                try {
-                    $apiService->post('/api/sync/view-columns/batch', ['columns' => $columnsData]);
-                    usleep(self::DELAY_BETWEEN_BATCHES);
-                } catch (\Exception $e) {
-                    Log::error('❌ Failed to sync view columns batch', ['error' => $e->getMessage()]);
-                    throw $e;
-                }
-            });
-        
-        Log::info('✅ All view columns synced', ['total' => $processedColumns]);
-    }
-
-    /**
-     * ✅ Synchroniser les informations des vues par batches
-     */
-    protected function syncViewInformationInBatches(ApiService $apiService, $viewIds)
-    {
-        $totalInfo = DB::table('view_information')
-            ->whereIn('id_view', $viewIds)
-            ->count();
-        
-        if ($totalInfo === 0) {
-            Log::info('⚠️ No view information to sync');
-            return;
+        if (!empty($allColumns)) {
+            $this->sendInBatches($apiService, '/api/batch/view-columns', 'columns', $allColumns, self::BATCH_SIZE_VIEW_COLUMNS);
         }
-        
-        Log::info(' Total view information to sync', ['count' => $totalInfo]);
 
-        $processedInfo = 0;
-
-        DB::table('view_information')
-            ->whereIn('id_view', $viewIds)
-            ->orderBy('id')
-            ->chunk(self::BATCH_SIZE_VIEW_INFO, function ($infos) use ($apiService, &$processedInfo, $totalInfo) {
-                
-                $infoData = [];
-                
-                foreach ($infos as $info) {
-                    $remoteViewId = SyncMapping::getRemoteId('view', $info->id_view);
-                    
-                    if (!$remoteViewId) {
-                        continue;
-                    }
-
-                    $infoData[] = [
-                        'id_view' => $remoteViewId,
-                        'schema_name' => $info->schema_name,
-                        'definition' => $info->definition,
-                        'creation_date' => $this->formatDate($info->creation_date),
-                        'last_change_date' => $this->formatDate($info->last_change_date),
-                    ];
-                }
-
-                if (empty($infoData)) {
-                    return;
-                }
-
-                $processedInfo += count($infoData);
-                
-                Log::info('📤 Sending view information batch', [
-                    'count' => count($infoData),
-                    'progress' => round(($processedInfo / $totalInfo) * 100, 1) . '%',
-                ]);
-                
-                try {
-                    $apiService->post('/api/sync/view-information/batch', ['informations' => $infoData]);
-                    usleep(self::DELAY_BETWEEN_BATCHES);
-                } catch (\Exception $e) {
-                    Log::error('❌ Failed to sync view information batch', ['error' => $e->getMessage()]);
-                    throw $e;
-                }
-            });
-        
-        Log::info('✅ All view information synced', ['total' => $processedInfo]);
+        if (!empty($allInformation)) {
+            $this->sendInBatches($apiService, '/api/batch/view-information', 'informations', $allInformation, self::BATCH_SIZE_VIEW_INFO);
+        }
     }
 
     /**
-     * ✅ Synchroniser les fonctions par chunks
+     * ✅ Synchroniser les fonctions avec chunking
      */
     protected function syncFunctionsBatch(ApiService $apiService, DbDescription $dbDescription)
     {
@@ -750,217 +508,117 @@ class SyncProjectToWebJob implements ShouldQueue
             return;
         }
 
-        $totalFunctions = DB::table('function_descriptions')
-            ->where('dbid', $dbDescription->id)
-            ->count();
+        $functions = $dbDescription->functionDescriptions;
         
-        if ($totalFunctions === 0) {
+        if ($functions->isEmpty()) {
             Log::info('⚠️ No functions to sync');
             return;
         }
         
-        Log::info(' Total functions to sync', ['count' => $totalFunctions]);
+        Log::info('📊 Total functions to sync', ['count' => $functions->count()]);
 
+        $chunks = $functions->chunk(self::BATCH_SIZE_FUNCTIONS);
         $processedFunctions = 0;
 
-        DB::table('function_descriptions')
-            ->where('dbid', $dbDescription->id)
-            ->orderBy('id')
-            ->chunk(self::BATCH_SIZE_FUNCTIONS, function ($functions) use ($apiService, $remoteDbId, &$processedFunctions, $totalFunctions) {
-                
-                $functionsData = [];
-                
-                foreach ($functions as $function) {
-                    $functionsData[] = [
-                        'local_id' => $function->id,
-                        'dbid' => $remoteDbId,
-                        'functionname' => $function->functionname,
-                        'language' => $function->language,
-                        'description' => $function->description,
-                    ];
-                }
+        foreach ($chunks as $chunkIndex => $functionChunk) {
+            $functionsData = [];
+            
+            foreach ($functionChunk as $function) {
+                $functionsData[] = [
+                    'local_id' => $function->id,
+                    'dbid' => $remoteDbId,
+                    'functionname' => $function->functionname,
+                    'language' => $function->language,
+                    'description' => $function->description,
+                ];
+            }
 
-                $processedFunctions += count($functionsData);
-                
-                Log::info('📤 Sending functions batch', [
-                    'count' => count($functionsData),
-                    'progress' => round(($processedFunctions / $totalFunctions) * 100, 1) . '%',
-                ]);
-                
-                try {
-                    $response = $apiService->post('/api/sync/functions/batch', ['functions' => $functionsData]);
+            $processedFunctions += count($functionsData);
+            
+            Log::info('📤 Sending functions batch', [
+                'batch' => ($chunkIndex + 1) . '/' . $chunks->count(),
+                'count' => count($functionsData),
+            ]);
+            
+            try {
+                $response = $apiService->post('/api/batch/functions', ['functions' => $functionsData]);
 
-                    $results = $response['results'] ?? [];
-                    
-                    foreach ($results as $result) {
-                        if ($result['success'] && isset($result['local_id'], $result['remote_id'])) {
-                            SyncMapping::saveMapping('function', $result['local_id'], $result['remote_id']);
-                        }
+                $results = $response['results'] ?? [];
+                
+                foreach ($results as $result) {
+                    if ($result['success'] && isset($result['local_id'], $result['remote_id'])) {
+                        SyncMapping::saveMapping('function', $result['local_id'], $result['remote_id']);
                     }
-
-                    usleep(self::DELAY_BETWEEN_BATCHES);
-                    
-                } catch (\Exception $e) {
-                    Log::error('❌ Failed to sync functions batch', ['error' => $e->getMessage()]);
-                    throw $e;
                 }
-            });
+
+                usleep(self::DELAY_BETWEEN_BATCHES);
+                
+            } catch (\Exception $e) {
+                Log::error('❌ Failed to sync functions batch', [
+                    'batch' => ($chunkIndex + 1),
+                    'error' => $e->getMessage()
+                ]);
+                throw $e;
+            }
+        }
 
         Log::info('✅ All functions synced', ['total' => $processedFunctions]);
 
-        // Synchroniser les détails
         $this->syncFunctionDetailsBatch($apiService, $dbDescription);
     }
 
     /**
-     * ✅ Synchroniser les détails des fonctions en batch
+     * ✅ Synchroniser les détails des fonctions avec chunking
      */
     protected function syncFunctionDetailsBatch(ApiService $apiService, DbDescription $dbDescription)
     {
-        $functionIds = DB::table('function_descriptions')
-            ->where('dbid', $dbDescription->id)
-            ->pluck('id');
+        Log::info('🔧 Syncing function details');
 
-        Log::info(' Syncing function details', ['functions' => $functionIds->count()]);
+        $allInformation = [];
+        $allParameters = [];
 
-        // Information des fonctions
-        $this->syncFunctionInformationInBatches($apiService, $functionIds);
-        
-        // Paramètres des fonctions
-        $this->syncFunctionParametersInBatches($apiService, $functionIds);
-    }
+        foreach ($dbDescription->functionDescriptions as $function) {
+            $remoteFuncId = SyncMapping::getRemoteId('function', $function->id);
+            
+            if (!$remoteFuncId) {
+                continue;
+            }
 
-    /**
-     * ✅ Synchroniser les informations des fonctions par batches
-     */
-    protected function syncFunctionInformationInBatches(ApiService $apiService, $functionIds)
-    {
-        $totalInfo = DB::table('func_information')
-            ->whereIn('id_func', $functionIds)
-            ->count();
-        
-        if ($totalInfo === 0) {
-            Log::info('⚠️ No function information to sync');
-            return;
+            // Information
+            if ($function->information) {
+                $allInformation[] = [
+                    'id_func' => $remoteFuncId,
+                    'type' => $function->information->type,
+                    'return_type' => $function->information->return_type,
+                    'definition' => $function->information->definition,
+                    'creation_date' => $this->formatDate($function->information->creation_date),
+                    'last_change_date' => $this->formatDate($function->information->last_change_date),
+                ];
+            }
+
+            // Parameters
+            foreach ($function->parameters as $parameter) {
+                $allParameters[] = [
+                    'id_func' => $remoteFuncId,
+                    'name' => $parameter->name,
+                    'type' => $parameter->type,
+                    'output' => $parameter->output,
+                    'description' => $parameter->description,
+                ];
+            }
         }
-        
-        Log::info(' Total function information to sync', ['count' => $totalInfo]);
 
-        $processedInfo = 0;
-
-        DB::table('func_information')
-            ->whereIn('id_func', $functionIds)
-            ->orderBy('id')
-            ->chunk(self::BATCH_SIZE_FUNC_INFO, function ($infos) use ($apiService, &$processedInfo, $totalInfo) {
-                
-                $infoData = [];
-                
-                foreach ($infos as $info) {
-                    $remoteFuncId = SyncMapping::getRemoteId('function', $info->id_func);
-                    
-                    if (!$remoteFuncId) {
-                        continue;
-                    }
-
-                    $infoData[] = [
-                        'id_func' => $remoteFuncId,
-                        'type' => $info->type,
-                        'return_type' => $info->return_type,
-                        'definition' => $info->definition,
-                        'creation_date' => $this->formatDate($info->creation_date),
-                        'last_change_date' => $this->formatDate($info->last_change_date),
-                    ];
-                }
-
-                if (empty($infoData)) {
-                    return;
-                }
-
-                $processedInfo += count($infoData);
-                
-                Log::info('📤 Sending function information batch', [
-                    'count' => count($infoData),
-                    'progress' => round(($processedInfo / $totalInfo) * 100, 1) . '%',
-                ]);
-                
-                try {
-                    $apiService->post('/api/sync/function-information/batch', ['informations' => $infoData]);
-                    usleep(self::DELAY_BETWEEN_BATCHES);
-                } catch (\Exception $e) {
-                    Log::error('❌ Failed to sync function information batch', ['error' => $e->getMessage()]);
-                    throw $e;
-                }
-            });
-        
-        Log::info('✅ All function information synced', ['total' => $processedInfo]);
-    }
-
-    /**
-     * ✅ Synchroniser les paramètres des fonctions par batches
-     */
-    protected function syncFunctionParametersInBatches(ApiService $apiService, $functionIds)
-    {
-        $totalParams = DB::table('func_parameters')
-            ->whereIn('id_func', $functionIds)
-            ->count();
-        
-        if ($totalParams === 0) {
-            Log::info('⚠️ No function parameters to sync');
-            return;
+        if (!empty($allInformation)) {
+            $this->sendInBatches($apiService, '/api/batch/function-information', 'informations', $allInformation, self::BATCH_SIZE_FUNC_INFO);
         }
-        
-        Log::info(' Total function parameters to sync', ['count' => $totalParams]);
 
-        $processedParams = 0;
-
-        DB::table('func_parameters')
-            ->whereIn('id_func', $functionIds)
-            ->orderBy('id')
-            ->chunk(self::BATCH_SIZE_FUNC_PARAMS, function ($params) use ($apiService, &$processedParams, $totalParams) {
-                
-                $paramsData = [];
-                
-                foreach ($params as $param) {
-                    $remoteFuncId = SyncMapping::getRemoteId('function', $param->id_func);
-                    
-                    if (!$remoteFuncId) {
-                        continue;
-                    }
-
-                    $paramsData[] = [
-                        'id_func' => $remoteFuncId,
-                        'name' => $param->name,
-                        'type' => $param->type,
-                        'output' => $param->output,
-                        'description' => $param->description,
-                    ];
-                }
-
-                if (empty($paramsData)) {
-                    return;
-                }
-
-                $processedParams += count($paramsData);
-                
-                Log::info('📤 Sending function parameters batch', [
-                    'count' => count($paramsData),
-                    'progress' => round(($processedParams / $totalParams) * 100, 1) . '%',
-                ]);
-                
-                try {
-                    $apiService->post('/api/sync/function-parameters/batch', ['parameters' => $paramsData]);
-                    usleep(self::DELAY_BETWEEN_BATCHES);
-                } catch (\Exception $e) {
-                    Log::error('❌ Failed to sync function parameters batch', ['error' => $e->getMessage()]);
-                    throw $e;
-                }
-            });
-        
-        Log::info('✅ All function parameters synced', ['total' => $processedParams]);
+        if (!empty($allParameters)) {
+            $this->sendInBatches($apiService, '/api/batch/function-parameters', 'parameters', $allParameters, self::BATCH_SIZE_FUNC_PARAMS);
+        }
     }
 
     /**
-     * ✅ Synchroniser les procédures par chunks
+     * ✅ Synchroniser les procédures avec chunking
      */
     protected function syncProceduresBatch(ApiService $apiService, DbDescription $dbDescription)
     {
@@ -970,218 +628,118 @@ class SyncProjectToWebJob implements ShouldQueue
             return;
         }
 
-        $totalProcedures = DB::table('ps_descriptions')
-            ->where('dbid', $dbDescription->id)
-            ->count();
+        $procedures = $dbDescription->psDescriptions;
         
-        if ($totalProcedures === 0) {
+        if ($procedures->isEmpty()) {
             Log::info('⚠️ No procedures to sync');
             return;
         }
         
-        Log::info(' Total procedures to sync', ['count' => $totalProcedures]);
+        Log::info('📊 Total procedures to sync', ['count' => $procedures->count()]);
 
+        $chunks = $procedures->chunk(self::BATCH_SIZE_PROCEDURES);
         $processedProcedures = 0;
 
-        DB::table('ps_descriptions')
-            ->where('dbid', $dbDescription->id)
-            ->orderBy('id')
-            ->chunk(self::BATCH_SIZE_PROCEDURES, function ($procedures) use ($apiService, $remoteDbId, &$processedProcedures, $totalProcedures) {
-                
-                $proceduresData = [];
-                
-                foreach ($procedures as $procedure) {
-                    $proceduresData[] = [
-                        'local_id' => $procedure->id,
-                        'dbid' => $remoteDbId,
-                        'psname' => $procedure->psname,
-                        'language' => $procedure->language,
-                        'description' => $procedure->description,
-                    ];
-                }
+        foreach ($chunks as $chunkIndex => $procedureChunk) {
+            $proceduresData = [];
+            
+            foreach ($procedureChunk as $procedure) {
+                $proceduresData[] = [
+                    'local_id' => $procedure->id,
+                    'dbid' => $remoteDbId,
+                    'psname' => $procedure->psname,
+                    'language' => $procedure->language,
+                    'description' => $procedure->description,
+                ];
+            }
 
-                $processedProcedures += count($proceduresData);
-                
-                Log::info('📤 Sending procedures batch', [
-                    'count' => count($proceduresData),
-                    'progress' => round(($processedProcedures / $totalProcedures) * 100, 1) . '%',
-                ]);
-                
-                try {
-                    $response = $apiService->post('/api/sync/procedures/batch', ['procedures' => $proceduresData]);
+            $processedProcedures += count($proceduresData);
+            
+            Log::info('📤 Sending procedures batch', [
+                'batch' => ($chunkIndex + 1) . '/' . $chunks->count(),
+                'count' => count($proceduresData),
+            ]);
+            
+            try {
+                $response = $apiService->post('/api/batch/procedures', ['procedures' => $proceduresData]);
 
-                    $results = $response['results'] ?? [];
-                    
-                    foreach ($results as $result) {
-                        if ($result['success'] && isset($result['local_id'], $result['remote_id'])) {
-                            SyncMapping::saveMapping('procedure', $result['local_id'], $result['remote_id']);
-                        }
+                $results = $response['results'] ?? [];
+                
+                foreach ($results as $result) {
+                    if ($result['success'] && isset($result['local_id'], $result['remote_id'])) {
+                        SyncMapping::saveMapping('procedure', $result['local_id'], $result['remote_id']);
                     }
-
-                    usleep(self::DELAY_BETWEEN_BATCHES);
-                    
-                } catch (\Exception $e) {
-                    Log::error('❌ Failed to sync procedures batch', ['error' => $e->getMessage()]);
-                    throw $e;
                 }
-            });
+
+                usleep(self::DELAY_BETWEEN_BATCHES);
+                
+            } catch (\Exception $e) {
+                Log::error('❌ Failed to sync procedures batch', [
+                    'batch' => ($chunkIndex + 1),
+                    'error' => $e->getMessage()
+                ]);
+                throw $e;
+            }
+        }
 
         Log::info('✅ All procedures synced', ['total' => $processedProcedures]);
 
-        // Synchroniser les détails
         $this->syncProcedureDetailsBatch($apiService, $dbDescription);
     }
 
     /**
-     * ✅ Synchroniser les détails des procédures en batch
+     * ✅ Synchroniser les détails des procédures avec chunking
      */
     protected function syncProcedureDetailsBatch(ApiService $apiService, DbDescription $dbDescription)
     {
-        $procedureIds = DB::table('ps_descriptions')
-            ->where('dbid', $dbDescription->id)
-            ->pluck('id');
+        Log::info('🔧 Syncing procedure details');
 
-        Log::info(' Syncing procedure details', ['procedures' => $procedureIds->count()]);
+        $allInformation = [];
+        $allParameters = [];
 
-        // Information des procédures
-        $this->syncProcedureInformationInBatches($apiService, $procedureIds);
-        
-        // Paramètres des procédures
-        $this->syncProcedureParametersInBatches($apiService, $procedureIds);
-    }
+        foreach ($dbDescription->psDescriptions as $procedure) {
+            $remotePsId = SyncMapping::getRemoteId('procedure', $procedure->id);
+            
+            if (!$remotePsId) {
+                continue;
+            }
 
-    /**
-     * ✅ Synchroniser les informations des procédures par batches
-     */
-    protected function syncProcedureInformationInBatches(ApiService $apiService, $procedureIds)
-    {
-        $totalInfo = DB::table('ps_information')
-            ->whereIn('id_ps', $procedureIds)
-            ->count();
-        
-        if ($totalInfo === 0) {
-            Log::info('⚠️ No procedure information to sync');
-            return;
+            // Information
+            if ($procedure->information) {
+                $allInformation[] = [
+                    'id_ps' => $remotePsId,
+                    'schema' => $procedure->information->schema,
+                    'creation_date' => $this->formatDate($procedure->information->creation_date),
+                    'last_change_date' => $this->formatDate($procedure->information->last_change_date),
+                    'definition' => $procedure->information->definition,
+                ];
+            }
+
+            // Parameters
+            foreach ($procedure->parameters as $parameter) {
+                $allParameters[] = [
+                    'id_ps' => $remotePsId,
+                    'name' => $parameter->name,
+                    'type' => $parameter->type,
+                    'output' => $parameter->output,
+                    'default_value' => $parameter->default_value,
+                    'description' => $parameter->description,
+                    'release_id' => $parameter->release_id,
+                ];
+            }
         }
-        
-        Log::info(' Total procedure information to sync', ['count' => $totalInfo]);
 
-        $processedInfo = 0;
-
-        DB::table('ps_information')
-            ->whereIn('id_ps', $procedureIds)
-            ->orderBy('id')
-            ->chunk(self::BATCH_SIZE_PS_INFO, function ($infos) use ($apiService, &$processedInfo, $totalInfo) {
-                
-                $infoData = [];
-                
-                foreach ($infos as $info) {
-                    $remotePsId = SyncMapping::getRemoteId('procedure', $info->id_ps);
-                    
-                    if (!$remotePsId) {
-                        continue;
-                    }
-
-                    $infoData[] = [
-                        'id_ps' => $remotePsId,
-                        'schema' => $info->schema,
-                        'creation_date' => $this->formatDate($info->creation_date),
-                        'last_change_date' => $this->formatDate($info->last_change_date),
-                        'definition' => $info->definition,
-                    ];
-                }
-
-                if (empty($infoData)) {
-                    return;
-                }
-
-                $processedInfo += count($infoData);
-                
-                Log::info('📤 Sending procedure information batch', [
-                    'count' => count($infoData),
-                    'progress' => round(($processedInfo / $totalInfo) * 100, 1) . '%',
-                ]);
-                
-                try {
-                    $apiService->post('/api/sync/procedure-information/batch', ['informations' => $infoData]);
-                    usleep(self::DELAY_BETWEEN_BATCHES);
-                } catch (\Exception $e) {
-                    Log::error('❌ Failed to sync procedure information batch', ['error' => $e->getMessage()]);
-                    throw $e;
-                }
-            });
-        
-        Log::info('✅ All procedure information synced', ['total' => $processedInfo]);
-    }
-
-    /**
-     * ✅ Synchroniser les paramètres des procédures par batches
-     */
-    protected function syncProcedureParametersInBatches(ApiService $apiService, $procedureIds)
-    {
-        $totalParams = DB::table('ps_parameters')
-            ->whereIn('id_ps', $procedureIds)
-            ->count();
-        
-        if ($totalParams === 0) {
-            Log::info('⚠️ No procedure parameters to sync');
-            return;
+        if (!empty($allInformation)) {
+            $this->sendInBatches($apiService, '/api/batch/procedure-information', 'informations', $allInformation, self::BATCH_SIZE_PS_INFO);
         }
-        
-        Log::info(' Total procedure parameters to sync', ['count' => $totalParams]);
 
-        $processedParams = 0;
-
-        DB::table('ps_parameters')
-            ->whereIn('id_ps', $procedureIds)
-            ->orderBy('id')
-            ->chunk(self::BATCH_SIZE_PS_PARAMS, function ($params) use ($apiService, &$processedParams, $totalParams) {
-                
-                $paramsData = [];
-                
-                foreach ($params as $param) {
-                    $remotePsId = SyncMapping::getRemoteId('procedure', $param->id_ps);
-                    
-                    if (!$remotePsId) {
-                        continue;
-                    }
-
-                    $paramsData[] = [
-                        'id_ps' => $remotePsId,
-                        'name' => $param->name,
-                        'type' => $param->type,
-                        'output' => $param->output,
-                        'default_value' => $param->default_value,
-                        'description' => $param->description,
-                        'release_id' => $param->release_id,
-                    ];
-                }
-
-                if (empty($paramsData)) {
-                    return;
-                }
-
-                $processedParams += count($paramsData);
-                
-                Log::info('📤 Sending procedure parameters batch', [
-                    'count' => count($paramsData),
-                    'progress' => round(($processedParams / $totalParams) * 100, 1) . '%',
-                ]);
-                
-                try {
-                    $apiService->post('/api/sync/procedure-parameters/batch', ['parameters' => $paramsData]);
-                    usleep(self::DELAY_BETWEEN_BATCHES);
-                } catch (\Exception $e) {
-                    Log::error('❌ Failed to sync procedure parameters batch', ['error' => $e->getMessage()]);
-                    throw $e;
-                }
-            });
-        
-        Log::info('✅ All procedure parameters synced', ['total' => $processedParams]);
+        if (!empty($allParameters)) {
+            $this->sendInBatches($apiService, '/api/batch/procedure-parameters', 'parameters', $allParameters, self::BATCH_SIZE_PS_PARAMS);
+        }
     }
 
     /**
-     * ✅ Synchroniser les triggers par chunks
+     * ✅ Synchroniser les triggers avec chunking
      */
     protected function syncTriggersBatch(ApiService $apiService, DbDescription $dbDescription)
     {
@@ -1191,159 +749,143 @@ class SyncProjectToWebJob implements ShouldQueue
             return;
         }
 
-        $totalTriggers = DB::table('trigger_descriptions')
-            ->where('dbid', $dbDescription->id)
-            ->count();
+        $triggers = $dbDescription->triggerDescriptions;
         
-        if ($totalTriggers === 0) {
+        if ($triggers->isEmpty()) {
             Log::info('⚠️ No triggers to sync');
             return;
         }
         
-        Log::info(' Total triggers to sync', ['count' => $totalTriggers]);
+        Log::info('📊 Total triggers to sync', ['count' => $triggers->count()]);
 
+        $chunks = $triggers->chunk(self::BATCH_SIZE_TRIGGERS);
         $processedTriggers = 0;
 
-        DB::table('trigger_descriptions')
-            ->where('dbid', $dbDescription->id)
-            ->orderBy('id')
-            ->chunk(self::BATCH_SIZE_TRIGGERS, function ($triggers) use ($apiService, $remoteDbId, &$processedTriggers, $totalTriggers) {
-                
-                $triggersData = [];
-                
-                foreach ($triggers as $trigger) {
-                    $triggersData[] = [
-                        'local_id' => $trigger->id,
-                        'dbid' => $remoteDbId,
-                        'triggername' => $trigger->triggername,
-                        'language' => $trigger->language,
-                        'description' => $trigger->description,
-                    ];
-                }
+        foreach ($chunks as $chunkIndex => $triggerChunk) {
+            $triggersData = [];
+            
+            foreach ($triggerChunk as $trigger) {
+                $triggersData[] = [
+                    'local_id' => $trigger->id,
+                    'dbid' => $remoteDbId,
+                    'triggername' => $trigger->triggername,
+                    'language' => $trigger->language,
+                    'description' => $trigger->description,
+                ];
+            }
 
-                $processedTriggers += count($triggersData);
-                
-                Log::info('📤 Sending triggers batch', [
-                    'count' => count($triggersData),
-                    'progress' => round(($processedTriggers / $totalTriggers) * 100, 1) . '%',
-                ]);
-                
-                try {
-                    $response = $apiService->post('/api/sync/triggers/batch', ['triggers' => $triggersData]);
+            $processedTriggers += count($triggersData);
+            
+            Log::info('📤 Sending triggers batch', [
+                'batch' => ($chunkIndex + 1) . '/' . $chunks->count(),
+                'count' => count($triggersData),
+            ]);
+            
+            try {
+                $response = $apiService->post('/api/batch/triggers', ['triggers' => $triggersData]);
 
-                    $results = $response['results'] ?? [];
-                    
-                    foreach ($results as $result) {
-                        if ($result['success'] && isset($result['local_id'], $result['remote_id'])) {
-                            SyncMapping::saveMapping('trigger', $result['local_id'], $result['remote_id']);
-                        }
+                $results = $response['results'] ?? [];
+                
+                foreach ($results as $result) {
+                    if ($result['success'] && isset($result['local_id'], $result['remote_id'])) {
+                        SyncMapping::saveMapping('trigger', $result['local_id'], $result['remote_id']);
                     }
-
-                    usleep(self::DELAY_BETWEEN_BATCHES);
-                    
-                } catch (\Exception $e) {
-                    Log::error('❌ Failed to sync triggers batch', ['error' => $e->getMessage()]);
-                    throw $e;
                 }
-            });
+
+                usleep(self::DELAY_BETWEEN_BATCHES);
+                
+            } catch (\Exception $e) {
+                Log::error('❌ Failed to sync triggers batch', [
+                    'batch' => ($chunkIndex + 1),
+                    'error' => $e->getMessage()
+                ]);
+                throw $e;
+            }
+        }
 
         Log::info('✅ All triggers synced', ['total' => $processedTriggers]);
 
-        // Synchroniser les détails
         $this->syncTriggerDetailsBatch($apiService, $dbDescription);
     }
 
     /**
-     * ✅ Synchroniser les détails des triggers en batch
+     * ✅ Synchroniser les détails des triggers avec chunking
      */
     protected function syncTriggerDetailsBatch(ApiService $apiService, DbDescription $dbDescription)
     {
-        $triggerIds = DB::table('trigger_descriptions')
-            ->where('dbid', $dbDescription->id)
-            ->pluck('id');
+        Log::info('🔧 Syncing trigger details');
 
-        if ($triggerIds->isEmpty()) {
-            return;
+        $allInformation = [];
+
+        foreach ($dbDescription->triggerDescriptions as $trigger) {
+            $remoteTriggerId = SyncMapping::getRemoteId('trigger', $trigger->id);
+            
+            if (!$remoteTriggerId) {
+                continue;
+            }
+
+            // Information
+            if ($trigger->information) {
+                $allInformation[] = [
+                    'id_trigger' => $remoteTriggerId,
+                    'schema' => $trigger->information->schema,
+                    'table' => $trigger->information->table,
+                    'type' => $trigger->information->type,
+                    'event' => $trigger->information->event,
+                    'state' => $trigger->information->state,
+                    'definition' => $trigger->information->definition,
+                    'is_disabled' => $trigger->information->is_disabled,
+                    'creation_date' => $this->formatDate($trigger->information->creation_date),
+                    'last_change_date' => $this->formatDate($trigger->information->last_change_date),
+                ];
+            }
         }
 
-        Log::info(' Syncing trigger details', ['triggers' => $triggerIds->count()]);
-
-        // Information des triggers
-        $this->syncTriggerInformationInBatches($apiService, $triggerIds);
+        if (!empty($allInformation)) {
+            $this->sendInBatches($apiService, '/api/batch/trigger-information', 'informations', $allInformation, self::BATCH_SIZE_TRIGGER_INFO);
+        }
     }
 
     /**
-     * ✅ Synchroniser les informations des triggers par batches
+     * ✅ Helper pour envoyer des données en batches
      */
-    protected function syncTriggerInformationInBatches(ApiService $apiService, $triggerIds)
+    protected function sendInBatches(ApiService $apiService, string $endpoint, string $key, array $data, int $batchSize)
     {
-        $totalInfo = DB::table('trigger_information')
-            ->whereIn('id_trigger', $triggerIds)
-            ->count();
+        $total = count($data);
         
-        if ($totalInfo === 0) {
-            Log::info('⚠️ No trigger information to sync');
+        if ($total === 0) {
             return;
         }
-        
-        Log::info(' Total trigger information to sync', ['count' => $totalInfo]);
 
-        $processedInfo = 0;
+        Log::info("📊 Sending {$key} in batches", ['total' => $total]);
 
-        DB::table('trigger_information')
-            ->whereIn('id_trigger', $triggerIds)
-            ->orderBy('id')
-            ->chunk(self::BATCH_SIZE_TRIGGER_INFO, function ($infos) use ($apiService, &$processedInfo, $totalInfo) {
-                
-                $infoData = [];
-                
-                foreach ($infos as $info) {
-                    $remoteTriggerId = SyncMapping::getRemoteId('trigger', $info->id_trigger);
-                    
-                    if (!$remoteTriggerId) {
-                        continue;
-                    }
+        $chunks = array_chunk($data, $batchSize);
+        $processed = 0;
 
-                    $infoData[] = [
-                        'id_trigger' => $remoteTriggerId,
-                        'schema' => $info->schema,
-                        'table' => $info->table,
-                        'type' => $info->type,
-                        'event' => $info->event,
-                        'state' => $info->state,
-                        'definition' => $info->definition,
-                        'is_disabled' => $info->is_disabled,
-                        'creation_date' => $this->formatDate($info->creation_date),
-                        'last_change_date' => $this->formatDate($info->last_change_date),
-                    ];
-                }
-
-                if (empty($infoData)) {
-                    return;
-                }
-
-                $processedInfo += count($infoData);
-                
-                Log::info('📤 Sending trigger information batch', [
-                    'count' => count($infoData),
-                    'progress' => round(($processedInfo / $totalInfo) * 100, 1) . '%',
+        foreach ($chunks as $index => $chunk) {
+            $processed += count($chunk);
+            
+            Log::info("📤 Sending {$key} batch", [
+                'batch' => ($index + 1) . '/' . count($chunks),
+                'count' => count($chunk),
+                'progress' => round(($processed / $total) * 100, 1) . '%',
+            ]);
+            
+            try {
+                $apiService->post($endpoint, [$key => $chunk]);
+                usleep(self::DELAY_BETWEEN_BATCHES);
+            } catch (\Exception $e) {
+                Log::error("❌ Failed to sync {$key} batch", [
+                    'batch' => ($index + 1),
+                    'error' => $e->getMessage()
                 ]);
-                
-                try {
-                    $apiService->post('/api/sync/trigger-information/batch', ['informations' => $infoData]);
-                    usleep(self::DELAY_BETWEEN_BATCHES);
-                } catch (\Exception $e) {
-                    Log::error('❌ Failed to sync trigger information batch', ['error' => $e->getMessage()]);
-                    throw $e;
-                }
-            });
+                throw $e;
+            }
+        }
         
-        Log::info('✅ All trigger information synced', ['total' => $processedInfo]);
+        Log::info("✅ All {$key} synced", ['total' => $processed]);
     }
 
-    /**
-     * Helper pour formater les dates
-     */
     protected function formatDate($date): ?string
     {
         if (empty($date)) {
