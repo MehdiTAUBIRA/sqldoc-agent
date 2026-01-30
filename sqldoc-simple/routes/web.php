@@ -33,6 +33,7 @@ Route::get('/register', function () {
     return redirect('/');  
 })->name('register');
 
+// ✅ ROUTES AGENT - Accessibles sans authentification
 Route::middleware('web')->group(function () {
     // Page de connexion de l'agent (formulaire token + API URL)
     Route::get('/agent/login', [AgentAuthController::class, 'showAgentLoginForm'])
@@ -41,10 +42,19 @@ Route::middleware('web')->group(function () {
     // Traitement de la connexion agent
     Route::post('/agent/login', [AgentAuthController::class, 'agentLogin'])
         ->name('agent.login.submit');
+
+    // ✅ Routes pour gérer l'historique des agents (accessibles même si pas connecté)
+    Route::post('/agent/reconnect', [AgentAuthController::class, 'reconnect'])
+        ->name('agent.reconnect');
+    
+    Route::delete('/agent/{agent_id}', [AgentAuthController::class, 'deleteAgent'])
+        ->name('agent.delete');
+    
+    Route::put('/agent/{agent_id}/name', [AgentAuthController::class, 'updateOrganizationName'])
+        ->name('agent.update-name');
 });
 
-
-
+// ✅ ROUTES USER LOGIN - Nécessite un agent connecté
 Route::middleware(['web', 'agent.auth'])->group(function () {
     // Page de login utilisateur (email + password)
     Route::get('/user/login', [AgentAuthController::class, 'showUserLoginForm'])
@@ -54,10 +64,11 @@ Route::middleware(['web', 'agent.auth'])->group(function () {
     Route::post('/user/login', [AgentAuthController::class, 'userLogin'])
         ->name('user.login.submit');
 
+    // Déconnexion agent
     Route::post('/agent/logout', [AgentAuthController::class, 'agentLogout'])
         ->name('agent.logout');
 
-
+    // API pour pending sync
     Route::get('/api/pending-sync/count', function() {
         return response()->json([
             'count' => \App\Models\PendingSync::whereNull('synced_at')->count()
@@ -84,7 +95,6 @@ Route::middleware(['web', 'agent.auth'])->group(function () {
 
     Route::post('/api/sync-trigger', function() {
         try {
-            // Exécuter immédiatement (pas de queue)
             (new \App\Jobs\SyncPendingChangesJob())->handle();
             
             $pending = \App\Models\PendingSync::whereNull('synced_at')->count();
@@ -108,41 +118,33 @@ Route::middleware(['web', 'agent.auth'])->group(function () {
     });
 });
 
-
 Route::get('/', function () {
-    
     if (!agentConnected()) {
         return redirect()->route('agent.login');
     }
-    
     
     if (!auth()->check()) {
         return redirect()->route('user.login');
     }
     
-    
     return redirect()->route('dashboard');
 });
 
-
-
+// ✅ ROUTES ADMIN
 Route::middleware(['auth', 'role:Admin'])->group(function () {
     Route::get('/admin', [AdminController::class, 'index'])->name('admin');
     Route::post('/admin/users', [AdminController::class, 'createUser']);
     Route::post('/admin/users/{user}/role', [AdminController::class, 'updateUserRole']);
     Route::put('/admin/roles/{role}/permissions', [AdminController::class, 'updateRolePermissions']);
 
-    //creation de role et delete role
     Route::post('/admin/roles', [AdminController::class, 'createRole'])->name('admin.roles.create');
     Route::delete('/admin/roles/{role}', [AdminController::class, 'deleteRole'])->name('admin.roles.delete');
 
-    // Nouvelles routes pour la gestion des accès aux projets
     Route::get('/admin/projects/available', [AdminController::class, 'getAvailableProjects'])->name('admin.projects.available');
     Route::get('/admin/users/{user}/project-accesses', [AdminController::class, 'getUserProjectAccesses'])->name('admin.users.project-accesses');
     Route::post('/admin/project-access/grant', [AdminController::class, 'grantProjectAccess'])->name('admin.project-access.grant');
     Route::post('/admin/project-access/revoke', [AdminController::class, 'revokeProjectAccess'])->name('admin.project-access.revoke');
 
-    // Routes existantes pour les projets supprimés
     Route::get('/projects/deleted', [AdminController::class, 'getDeletedProjects'])->name('admin.projects.deleted');
     Route::post('/projects/{id}/restore', [AdminController::class, 'restoreProject'])->name('admin.projects.restore');
     Route::get('/projects/stats', [AdminController::class, 'getProjectStats'])->name('admin.projects.stats');
@@ -151,24 +153,19 @@ Route::middleware(['auth', 'role:Admin'])->group(function () {
     Route::delete('/projects/{id}/force', [ProjectController::class, 'forceDeleteProject']);
 });
 
-
-
+// ✅ ROUTES AUTHENTIFIÉES (utilisateur connecté)
 Route::middleware(['web', 'agent.auth', 'auth'])->group(function () {
-    
     
     // Déconnecter l'utilisateur (garde l'agent connecté)
     Route::post('/user/logout', [AgentAuthController::class, 'userLogout'])
         ->name('user.logout');
     
-
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
             ->name('logout');
 
-
-    
     Route::get('/dashboard', function () {
         return Inertia::render('Dashboard');
     })->name('dashboard');
@@ -176,7 +173,6 @@ Route::middleware(['web', 'agent.auth', 'auth'])->group(function () {
     Route::get('/dashboard-data', [DashboardController::class, 'index']);
 
     // GESTION DES PROJETS
-
     Route::get('/projects', [ProjectController::class, 'index'])->name('projects.index');
     Route::get('/projects/create', [ProjectController::class, 'create'])->name('projects.create');
     Route::post('/projects', [ProjectController::class, 'store'])->name('projects.store');
@@ -186,24 +182,20 @@ Route::middleware(['web', 'agent.auth', 'auth'])->group(function () {
     Route::get('/projects/{project}/open', [ProjectController::class, 'open'])->name('projects.open');
     Route::post('/projects/{project}/test-connection', [ProjectController::class, 'testConnection'])->name('projects.test-connection');
     
-    // Soft delete et restauration
     Route::delete('/projects/{id}/soft', [ProjectController::class, 'softDelete'])->name('projects.soft-delete');
     Route::post('/projects/{id}/restore', [ProjectController::class, 'restore'])->name('projects.restore');
     Route::get('/projects/deleted', [ProjectController::class, 'deleted'])->name('projects.deleted');
     Route::put('/projects/{id}', [ProjectController::class, 'update'])->name('projects.update');
     Route::get('/projects/{id}/deletion-preview', [ProjectController::class, 'getProjectDeletionPreview']);
     Route::delete('/projects/{id}/force', [ProjectController::class, 'forceDeleteProject']);
-    
 
     // DATABASE STRUCTURE
-    
     Route::get('/database-structure', [DatabaseStructureController::class, 'index']);
     Route::post('/database-structure/refresh', [DatabaseStructureController::class, 'refresh'])->name('database.structure.refresh');
     Route::delete('/database-structure/cache', [DatabaseStructureController::class, 'clearCache'])->name('database.structure.clear-cache');
     Route::get('/database-structure/cache-status', [DatabaseStructureController::class, 'cacheStatus'])->name('database.structure.cache-status');
 
     // ROUTES AVEC PERMISSIONS DE LECTURE
-    
     Route::middleware('project.permissions:read')->group(function () {
         
         // TABLES
@@ -236,7 +228,6 @@ Route::middleware(['web', 'agent.auth', 'auth'])->group(function () {
     });
 
     // ROUTES AVEC PERMISSIONS D'ÉCRITURE
-    
     Route::middleware('project.permissions:write')->group(function () {
         
         // TABLES
@@ -289,7 +280,6 @@ Route::middleware(['web', 'agent.auth', 'auth'])->group(function () {
     });
 
     // ROUTES API AVEC PERMISSIONS
- 
     Route::prefix('api')->group(function () {
         
         // API LECTURE

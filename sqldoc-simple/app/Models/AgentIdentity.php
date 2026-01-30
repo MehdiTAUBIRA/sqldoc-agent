@@ -15,15 +15,22 @@ class AgentIdentity extends Model
         'agent_id',
         'tenant_id',
         'tenant_name',
+        'organization_name',
         'token_encrypted',
         'api_url',
+        'available_tenants',
+        'is_active',
         'connected_at',
+        'last_connected_at',
         'last_sync_at',
     ];
 
     protected $casts = [
+        'available_tenants' => 'array',
         'connected_at' => 'datetime',
+        'last_connected_at' => 'datetime',
         'last_sync_at' => 'datetime',
+        'is_active' => 'boolean',
     ];
 
     /**
@@ -41,6 +48,31 @@ class AgentIdentity extends Model
             \Log::error('Error decrypting agent token', ['error' => $e->getMessage()]);
             return null;
         }
+    }
+
+    public static function getActive(): ?self
+    {
+        return self::where('is_active', true)->first();
+    }
+
+    public static function getHistory()
+    {
+        return self::where('is_active', false)
+            ->orderBy('last_connected_at', 'desc')
+            ->orderByDesc('connected_at')
+            ->get();
+    }
+
+    public function setActive(): void
+    {
+        // Désactiver tous les autres agents
+        self::where('id', '!=', $this->id)->update(['is_active' => false]);
+        
+        // Activer celui-ci
+        $this->update([
+            'is_active' => true,
+            'last_connected_at' => now(),
+        ]);
     }
 
     /**
@@ -67,10 +99,7 @@ class AgentIdentity extends Model
     public function disconnect(): void
     {
         $this->update([
-            'agent_id' => null,
-            'tenant_id' => null,
-            'tenant_name' => null,
-            'connected_at' => null,
+            'is_active' => false,
         ]);
     }
 

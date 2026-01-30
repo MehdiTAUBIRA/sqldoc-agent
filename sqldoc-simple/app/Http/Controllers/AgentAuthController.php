@@ -1,4 +1,5 @@
 <?php
+// app/Http/Controllers/AgentAuthController.php
 
 namespace App\Http\Controllers;
 
@@ -16,7 +17,7 @@ class AgentAuthController extends Controller
     ) {}
 
     /**
-     * Afficher le formulaire de connexion agent
+     * ✅ Afficher le formulaire de connexion agent avec historique
      */
     public function showAgentLoginForm()
     {
@@ -24,17 +25,21 @@ class AgentAuthController extends Controller
             return redirect()->route('user.login');
         }
 
-        $identity = $this->agentAuth->getIdentity();
-        $hasCredentials = $identity && $identity->token_encrypted && $identity->api_url; 
+        $history = $this->agentAuth->getHistory();
 
         return Inertia::render('Agent/AgentLogin', [
-            'hasCredentials' => $hasCredentials,
-            'savedApiUrl' => $identity?->api_url,
+            'agentHistory' => $history->map(fn($agent) => [
+                'id' => $agent->id,
+                'organization_name' => $agent->organization_name,
+                'tenant_name' => $agent->tenant_name,
+                'api_url' => $agent->api_url,
+                'last_connected_at' => $agent->last_connected_at?->diffForHumans(),
+            ]),
         ]);
     }
 
     /**
-     * Connecter l'agent
+     * Connecter l'agent (nouveau ou existant)
      */
     public function agentLogin(Request $request)
     {
@@ -45,7 +50,6 @@ class AgentAuthController extends Controller
 
         Log::info('🔐 Agent login attempt', [
             'api_url' => $validated['api_url'],
-            'app_mode' => env('APP_MODE'),
         ]);
 
         $result = $this->agentAuth->authenticate(
@@ -54,27 +58,78 @@ class AgentAuthController extends Controller
         );
 
         if (!$result['success']) {
-            Log::error('❌ Agent authentication failed', [
-                'message' => $result['message'],
-            ]);
-            
             return back()->withErrors([
                 'token' => $result['message']
             ])->withInput();
         }
 
-        Log::info('✅ Agent authenticated, syncing users...');
-
         // Synchroniser les utilisateurs
-        $syncSuccess = $this->agentAuth->syncUsers();
-        
-        if (!$syncSuccess) {
-            Log::warning('⚠️ User sync failed, but continuing...');
-        }
+        $this->agentAuth->syncUsers();
 
         return redirect()
             ->route('user.login')
             ->with('success', 'Agent connected successfully!');
+    }
+
+    /**
+     * ✅ Reconnexion rapide à un agent de l'historique
+     */
+    public function reconnect(Request $request)
+    {
+        $validated = $request->validate([
+            'agent_id' => 'required|integer|exists:agent_identity,id',
+        ]);
+
+        $result = $this->agentAuth->reconnect($validated['agent_id']);
+
+        if (!$result['success']) {
+            return back()->withErrors([
+                'message' => $result['message']
+            ]);
+        }
+
+        return redirect()
+            ->route('user.login')
+            ->with('success', 'Agent reconnected successfully!');
+    }
+
+    /**
+     * ✅ Supprimer un agent de l'historique
+     */
+    public function deleteAgent(int $agent_id)
+    {
+        $success = $this->agentAuth->deleteFromHistory($agent_id);
+
+        if (!$success) {
+            return back()->withErrors([
+                'message' => 'Failed to delete agent or agent is active'
+            ]);
+        }
+
+        return back()->with('success', 'Agent deleted from history!');
+    }
+
+    /**
+     * ✅ Renommer une organisation
+     */
+    public function updateOrganizationName(Request $request, int $agent_id)
+    {
+        $validated = $request->validate([
+            'organization_name' => 'required|string|max:255',
+        ]);
+
+        $success = $this->agentAuth->updateOrganizationName(
+            $agent_id,
+            $validated['organization_name']
+        );
+
+        if (!$success) {
+            return back()->withErrors([
+                'organization_name' => 'Failed to update name'
+            ]);
+        }
+
+        return back()->with('success', 'Organization name updated!');
     }
 
     /**
@@ -94,11 +149,12 @@ class AgentAuthController extends Controller
 
         return Inertia::render('Agent/UserLogin', [
             'tenantName' => $identity->tenant_name ?? 'Unknown',
+            'organizationName' => $identity->organization_name ?? $identity->tenant_name,
         ]);
     }
 
     /**
-     * Login utilisateur (authentification via API web)
+     * ✅ Login utilisateur (authentification via API web)
      */
     public function userLogin(Request $request)
     {
@@ -109,7 +165,6 @@ class AgentAuthController extends Controller
 
         Log::info('👤 User login attempt', [
             'email' => $credentials['email'],
-            'app_mode' => env('APP_MODE'),
         ]);
 
         $identity = $this->agentAuth->getIdentity();
@@ -131,7 +186,6 @@ class AgentAuthController extends Controller
                 'email' => $credentials['email'],
             ]);
             
-            // ✅ UTILISER TenantApiClient au lieu de Http::
             $response = TenantApiClient::make()
                 ->timeout(30)
                 ->withHeaders([
@@ -147,7 +201,6 @@ class AgentAuthController extends Controller
                 Log::warning('❌ Authentication failed', [
                     'email' => $credentials['email'],
                     'status' => $response->status(),
-                    'body' => $response->body(),
                 ]);
                 
                 return back()->withErrors([
@@ -197,7 +250,6 @@ class AgentAuthController extends Controller
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
             Log::error('❌ Connection error during authentication', [
                 'error' => $e->getMessage(),
-                'url' => $identity->api_url ?? 'unknown',
             ]);
             
             return back()->withErrors([
@@ -229,7 +281,7 @@ class AgentAuthController extends Controller
     }
 
     /**
-     * Déconnecter l'agent ET l'utilisateur
+     * ✅ Déconnecter l'agent (le met dans l'historique)
      */
     public function agentLogout(Request $request)
     {
@@ -239,10 +291,12 @@ class AgentAuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         
+        // Désactiver l'agent (reste dans l'historique)
         $this->agentAuth->disconnect();
 
-        Log::info('✅ Agent disconnected, redirecting to agent login');
+        Log::info('✅ Agent disconnected');
 
         return redirect()->route('agent.login');
     }
 }
+

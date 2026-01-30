@@ -18,7 +18,10 @@ return new class extends Migration
             $table->string('tenant_name')->nullable(); 
             $table->text('token_encrypted'); 
             $table->string('api_url')->nullable(); 
+            $table->boolean('is_active')->default(true)->after('available_tenants');
+            $table->string('organization_name')->nullable()->after('tenant_name');
             $table->timestamp('connected_at')->nullable();
+            $table->timestamp('last_connected_at')->nullable()->after('is_active');
             $table->timestamp('last_sync_at')->nullable();
             $table->timestamps(); 
         });
