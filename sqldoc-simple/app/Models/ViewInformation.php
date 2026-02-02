@@ -52,8 +52,8 @@ class ViewInformation extends Model
             'id_view' => $this->id_view,  
             'schema_name' => $this->schema_name,
             'definition' => $this->definition,
-            'creation_date' => $this->toIso8601String(),
-            'last_change_date' => $this->toIso8601String(),
+            'creation_date' => $this->creation_date?->toIso8601String(),
+            'last_change_date' => $this->last_change_date?->toIso8601String(),
         ];
     }
 

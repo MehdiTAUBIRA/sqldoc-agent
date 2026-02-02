@@ -1485,7 +1485,7 @@ class ProjectController extends Controller
                 'admin_id' => auth()->id()
             ]);
 
-            return redirect()->route('admin')
+            return redirect()->route('projects.index')
                 ->with('success', "Le projet \"{$projectName}\" et toutes ses dépendances ont été supprimés définitivement.");
             
         } catch (\Exception $e) {

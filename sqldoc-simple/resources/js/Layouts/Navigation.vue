@@ -54,7 +54,7 @@
       </div>
 
       <ul class="mt-6">
-        <li v-if="$page.props.auth.user?.role === 'Admin'" class="relative px-6 py-3">
+        <!-- <li v-if="$page.props.auth.user?.role === 'Admin'" class="relative px-6 py-3">
           <NavLink :href="route('admin')" :active="route().current('admin')">
             <template #icon>
               <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -65,9 +65,9 @@
             </template>
             Administration
           </NavLink>
-        </li>
+        </li> -->
 
-        <li
+        <!-- <li
           v-if="$page.props.auth.user?.role === 'Admin' && $page.props.currentProject"
           class="relative px-6 py-3"
         >
@@ -90,7 +90,7 @@
             </template>
             Releases
           </NavLink>
-        </li>
+        </li> -->
         
         <li class="relative px-6 py-3">
           <NavLink :href="route('dashboard')" :active="route().current('dashboard')">
@@ -149,14 +149,14 @@
         </div>
 
         <!-- Barre de recherche -->
-        <div class="px-6 mt-4">
+        <!-- <div class="px-6 mt-4">
           <input
             type="text"
             v-model="searchQuery"
             placeholder="Search..."
             class="w-full px-3 py-2 text-sm text-gray-900 bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
           />
-        </div>
+        </div> -->
 
         <!-- Filtres -->
         <div class="px-6 mt-2 flex flex-wrap gap-2">
@@ -175,7 +175,7 @@
           </button>
         </div>
 
-        <li
+        <!-- <li
           v-if="$page.props.currentProject"
         >
         <Link
@@ -187,7 +187,7 @@
           </svg>
           <span>specific search</span>
         </Link>
-        </li>
+        </li> -->
 
         <!-- Section Tables -->
         <div v-if="shouldShowSection('tables')" class="px-6 py-3">
