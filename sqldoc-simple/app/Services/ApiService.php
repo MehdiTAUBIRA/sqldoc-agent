@@ -42,7 +42,8 @@ class ApiService
         try {
             // ✅ UTILISER TenantApiClient
             $response = TenantApiClient::make()
-                ->timeout(30)
+                ->timeout(600)
+                ->connectTimeout(60)
                 ->withHeaders([
                     'X-Agent-Token' => $token,
                     'X-Tenant-ID' => $this->identity->tenant_id,
@@ -113,7 +114,8 @@ class ApiService
         try {
             // ✅ UTILISER TenantApiClient
             $response = TenantApiClient::make()
-                ->timeout(30)
+                ->timeout(600)
+                ->connectTimeout(60)
                 ->withHeaders([
                     'Accept' => 'application/json',
                     'Content-Type' => 'application/json',
@@ -184,7 +186,8 @@ class ApiService
         try {
             // ✅ UTILISER TenantApiClient
             $response = TenantApiClient::make()
-                ->timeout(30)
+                ->timeout(600)
+                ->connectTimeout(60)
                 ->withHeaders([
                     'X-Agent-Token' => $token,
                     'X-Tenant-ID' => $this->identity->tenant_id,
@@ -254,7 +257,8 @@ class ApiService
         try {
             // ✅ UTILISER TenantApiClient
             $response = TenantApiClient::make()
-                ->timeout(30)
+                ->timeout(600)
+                ->connectTimeout(60)
                 ->withHeaders([
                     'X-Agent-Token' => $token,
                     'X-Tenant-ID' => $this->identity->tenant_id,
