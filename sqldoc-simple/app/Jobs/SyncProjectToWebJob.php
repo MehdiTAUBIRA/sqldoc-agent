@@ -29,11 +29,11 @@ class SyncProjectToWebJob implements ShouldQueue
     protected const BATCH_SIZE_FUNCTIONS = 50;
     protected const BATCH_SIZE_FUNC_INFO = 50;
     protected const BATCH_SIZE_FUNC_PARAMS = 100;
-    protected const BATCH_SIZE_PROCEDURES = 25;
-    protected const BATCH_SIZE_PS_INFO = 25;
-    protected const BATCH_SIZE_PS_PARAMS = 50;
+    protected const BATCH_SIZE_PROCEDURES = 100;
+    protected const BATCH_SIZE_PS_INFO = 50;
+    protected const BATCH_SIZE_PS_PARAMS = 100;
     protected const BATCH_SIZE_TRIGGERS = 50;
-    protected const BATCH_SIZE_TRIGGER_INFO = 50;
+    protected const BATCH_SIZE_TRIGGER_INFO = 100;
     
     protected const DELAY_BETWEEN_BATCHES = 1000000; // 1 seconde
 

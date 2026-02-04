@@ -915,7 +915,13 @@ const showAuditLogs = async (columnName) => {
 
 // Fonctions utilitaires
 const formatDataType = (column) => {
-  let type = column.type || column.data_type
+  let type = column.type || ''
+  if (!type) {
+    console.warn('Column type not define', column.column_name)
+    return '-'
+  }
+  
+  const typeLower = type.toLowerCase()
   if (['varchar', 'nvarchar', 'char', 'nchar'].includes(type.toLowerCase())) {
     if (column.max_length) {
       type += `(${column.max_length === -1 ? 'MAX' : column.max_length})`

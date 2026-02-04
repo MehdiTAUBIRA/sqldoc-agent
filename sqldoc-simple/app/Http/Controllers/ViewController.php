@@ -116,7 +116,14 @@ class ViewController extends Controller
             $columns = ViewColumn::where('id_view', $viewDesc->id)
                 ->get()
                 ->map(function ($column) use ($availableReleases) {
-                    // ✅ NOUVEAU : Ajouter les informations de release pour chaque colonne
+                    Log::debug('🔍 Column data from DB', [
+                        'name' => $column->name,
+                        'type' => $column->type,
+                        'max_length' => $column->max_length,
+                        'precision' => $column->precision,
+                        'scale' => $column->scale,
+                        'all_attributes' => $column->getAttributes(), 
+                    ]);
                     $releaseInfo = null;
                     if ($column->release_id) {
                         $releaseInfo = collect($availableReleases)->firstWhere('id', $column->release_id);
@@ -127,12 +134,12 @@ class ViewController extends Controller
                         'type' => $column->type,
                         'is_nullable' => $column->nullable == 1,
                         'description' => $column->description ?? null,
-                        'rangevalues' => $column->rangevalues ?? null, // ✅ NOUVEAU : Ajout rangevalues
+                        'rangevalues' => $column->rangevalues ?? null, 
                         'max_length' => $column->max_length ?? null,
                         'precision' => $column->precision ?? null,
                         'scale' => $column->scale ?? null,
-                        'release_id' => $column->release_id ?? null, // ✅ NOUVEAU : Ajout release_id
-                        'release_version' => $releaseInfo ? $releaseInfo['version_number'] : null // ✅ NOUVEAU : Ajout version
+                        'release_id' => $column->release_id ?? null, 
+                        'release_version' => $releaseInfo ? $releaseInfo['version_number'] : null 
                     ];
                 });
 
