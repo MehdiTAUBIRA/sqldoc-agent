@@ -19,23 +19,23 @@ class SyncProjectToWebJob implements ShouldQueue
 
     protected $dbDescriptionId;
 
-    protected const BATCH_SIZE_TABLES = 50;
+    protected const BATCH_SIZE_TABLES = 100;
     protected const BATCH_SIZE_COLUMNS = 100;
     protected const BATCH_SIZE_INDEXES = 100;
     protected const BATCH_SIZE_RELATIONS = 100;
-    protected const BATCH_SIZE_VIEWS = 50;
+    protected const BATCH_SIZE_VIEWS = 100;
     protected const BATCH_SIZE_VIEW_COLUMNS = 100;
-    protected const BATCH_SIZE_VIEW_INFO = 50;
-    protected const BATCH_SIZE_FUNCTIONS = 50;
-    protected const BATCH_SIZE_FUNC_INFO = 50;
+    protected const BATCH_SIZE_VIEW_INFO = 100;
+    protected const BATCH_SIZE_FUNCTIONS = 100;
+    protected const BATCH_SIZE_FUNC_INFO = 100;
     protected const BATCH_SIZE_FUNC_PARAMS = 100;
-    protected const BATCH_SIZE_PROCEDURES = 50;
+    protected const BATCH_SIZE_PROCEDURES = 100;
     protected const BATCH_SIZE_PS_INFO = 50;
-    protected const BATCH_SIZE_PS_PARAMS = 50;
-    protected const BATCH_SIZE_TRIGGERS = 50;
+    protected const BATCH_SIZE_PS_PARAMS = 100;
+    protected const BATCH_SIZE_TRIGGERS = 100;
     protected const BATCH_SIZE_TRIGGER_INFO = 100;
     
-    protected const DELAY_BETWEEN_BATCHES = 1000000; // 1 seconde
+    protected const DELAY_BETWEEN_BATCHES = 500000; // 1 seconde
 
     public $timeout = 3600;
     public $tries = 3;
@@ -450,7 +450,9 @@ class SyncProjectToWebJob implements ShouldQueue
      */
     protected function syncViewDetailsBatch(ApiService $apiService, DbDescription $dbDescription)
     {
-        Log::info('🔧 Syncing view details');
+        Log::info('🔧 Syncing view details', [
+            'total_views' => $dbDescription->viewDescriptions->count()
+        ]);
 
         $allColumns = [];
         $allInformation = [];
@@ -459,8 +461,19 @@ class SyncProjectToWebJob implements ShouldQueue
             $remoteViewId = SyncMapping::getRemoteId('view', $view->id);
             
             if (!$remoteViewId) {
+                Log::warning('❌ No remote ID found for view', [
+                    'local_view_id' => $view->id,
+                    'view_name' => $view->name
+                ]);
                 continue;
             }
+
+            Log::info('✅ Processing view', [
+                'local_id' => $view->id,
+                'remote_id' => $remoteViewId,
+                'view_name' => $view->name,
+                'columns_count' => $view->columns->count()
+            ]);
 
             // Colonnes
             foreach ($view->columns as $column) {
@@ -469,7 +482,7 @@ class SyncProjectToWebJob implements ShouldQueue
                     'name' => $column->name,
                     'type' => $column->type,
                     'is_nullable' => $column->is_nullable,
-                    'max_lengh' => $column->max_lengh,
+                    'max_length' => $column->max_length,
                     'description' => $column->description,
                     'precision' => $column->precision,
                     'scale' => $column->scale,
@@ -488,12 +501,21 @@ class SyncProjectToWebJob implements ShouldQueue
             }
         }
 
+        Log::info('📊 Prepared data for sync', [
+            'columns_count' => count($allColumns),
+            'information_count' => count($allInformation)
+        ]);
+
         if (!empty($allColumns)) {
-            $this->sendInBatches($apiService, '/api/batch/view-columns', 'columns', $allColumns, self::BATCH_SIZE_VIEW_COLUMNS);
+            Log::info('📤 Sending view columns');
+            $response = $this->sendInBatches($apiService, '/api/batch/view-columns', 'columns', $allColumns, self::BATCH_SIZE_VIEW_COLUMNS);
+            Log::info('✅ View columns response', ['response' => $response]);
         }
 
         if (!empty($allInformation)) {
-            $this->sendInBatches($apiService, '/api/batch/view-information', 'informations', $allInformation, self::BATCH_SIZE_VIEW_INFO);
+            Log::info('📤 Sending view information');
+            $response = $this->sendInBatches($apiService, '/api/batch/view-information', 'informations', $allInformation, self::BATCH_SIZE_VIEW_INFO);
+            Log::info('✅ View information response', ['response' => $response]);
         }
     }
 

@@ -21,7 +21,7 @@
         SQL-INFO 2025
       </Link>
         <ul class="mt-6">
-          <li class="relative px-6 py-3">
+          <!-- <li class="relative px-6 py-3">
             <ResponsiveNavLink :href="route('admin')" :active="route().current('admin')">
               <template #icon>
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -45,7 +45,7 @@
               </template>
               Releases
             </ResponsiveNavLink>
-          </li>
+          </li> -->
 
           <li class="relative px-6 py-3">
             <ResponsiveNavLink :href="route('dashboard')" :active="route().current('dashboard')">
@@ -73,7 +73,7 @@
         </ul>
 
         <!-- Indicateur de chargement ou erreur -->
-        <div v-if="!navigationData || navigationData.metadata?.error" class="px-6 py-4">
+        <!-- <div v-if="!navigationData || navigationData.metadata?.error" class="px-6 py-4">
           <div v-if="navigationData?.metadata?.error" class="text-red-300 text-xs">
             <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -90,23 +90,23 @@
             </svg>
             Chargement...
           </div>
-        </div>
+        </div> -->
 
         <!-- Interface de navigation normale -->
-        <div v-else>
+        <!-- <div v-else> -->
           <!-- Barre de recherche -->
-          <div class="px-6 mt-4">
+          <!-- <div class="px-6 mt-4">
             <input
               type="text"
               v-model="searchQuery"
               placeholder="Rechercher..."
               class="w-full px-3 py-2 text-sm text-gray-900 bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
-          </div>
+          </div> -->
 
           <!-- Filtres -->
           <div class="px-6 mt-2 flex flex-wrap gap-2">
-            <button
+            <!-- <button
               v-for="filter in filters"
               :key="filter.type"
               @click="toggleFilter(filter.type)"
@@ -118,7 +118,7 @@
               ]"
             >
               {{ filter.label }} ({{ getFilterCount(filter.type) }})
-            </button>
+            </button> -->
           </div>
 
           <!-- Section Tables -->
@@ -274,7 +274,7 @@
               </li>
             </ul>
           </div>
-        </div>
+        <!-- </div> -->
       </div>
     </aside>
   </transition>

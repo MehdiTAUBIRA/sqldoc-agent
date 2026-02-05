@@ -160,7 +160,7 @@
 
         <!-- Filtres -->
         <div class="px-6 mt-2 flex flex-wrap gap-2">
-          <button
+          <!-- <button
             v-for="filter in filters"
             :key="filter.type"
             @click="toggleFilter(filter.type)"
@@ -172,7 +172,7 @@
             ]"
           >
             {{ filter.label }} ({{ getFilterCount(filter.type) }})
-          </button>
+          </button> -->
         </div>
 
         <!-- <li

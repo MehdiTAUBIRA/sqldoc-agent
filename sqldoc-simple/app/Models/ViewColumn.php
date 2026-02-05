@@ -18,7 +18,7 @@ class ViewColumn extends Model
         'type',
         'is_nullable',
         'description',
-        'max_lengh',
+        'max_length',
         'precision',
         'scale',
     ];
@@ -53,7 +53,7 @@ class ViewColumn extends Model
             'name' => $this->name,
             'type' => $this->type,
             'is_nullable' => $this->is_nullable,
-            'max_lengh' => $this->max_lengh,
+            'max_length' => $this->max_length,
             'description' => $this->description,
             'precision' => $this->precision,
             'scale' => $this->scale,
