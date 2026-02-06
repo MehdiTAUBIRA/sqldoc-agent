@@ -613,25 +613,28 @@ const getAccessText = (accessLevel) => {
 };
 
 // Surveiller les messages flash
-watch(() => page.props.flash, (flash) => {
-    if (flash) {
-        if (flash.success) {
-            flashMessage.value = { type: 'success', message: flash.success };
-        } else if (flash.error) {
-            flashMessage.value = { type: 'error', message: flash.error };
-        } else if (flash.warning) {
-            flashMessage.value = { type: 'warning', message: flash.warning };
-        } else if (flash.info) {
-            flashMessage.value = { type: 'info', message: flash.info };
-        }
-        
-        if (flashMessage.value && flashMessage.value.type !== 'error') {
-            setTimeout(() => {
-                hideFlashMessage();
-            }, 8000);
-        }
+watch(
+  () => page.props.flash,
+  (flash) => {
+    if (!flash || Object.keys(flash).length === 0) return;
+
+    const types = ['success', 'error', 'warning', 'info'];
+
+    for (const type of types) {
+      if (flash[type]) {
+        flashMessage.value = {
+          type,
+          message: flash[type],
+        };
+        break;
+      }
     }
-}, { immediate: true, deep: true });
+
+    if (flashMessage.value?.type !== 'error') {
+      setTimeout(hideFlashMessage, 8000);
+    }
+  },
+  { immediate: true });
 
 const hideFlashMessage = () => {
     flashMessage.value = null;
@@ -886,34 +889,14 @@ const deleteProject = async () => {
     }
 };
 
-const restoreProject = async (project) => {
-    try {
-        // router Inertia pour la restauration
-        router.post(`/projects/${project.id}/restore`, {}, {
-            preserveState: false,
-            onSuccess: () => {
-                flashMessage.value = { 
-                    type: 'success', 
-                    message: 'Project successfully restored' 
-                };
-                loadDeletedProjects();
-            },
-            onError: (errors) => {
-                console.error('Error while restoring:', errors);
-                flashMessage.value = { 
-                    type: 'error', 
-                    message: 'Error: ' + (Object.values(errors)[0] || 'Unknown error')
-                };
-            }
-        });
-    } catch (error) {
-        console.error('Error while restoring:', error);
-        flashMessage.value = { 
-            type: 'error', 
-            message: 'Error: ' + (error.response?.data?.error || error.message) 
-        };
-    }
-};
+const restoreProject = (project) => {
+    router.post(`/projects/${project.id}/restore`, {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+            
+        }
+    })
+}
 
 const isAdmin = computed(() => {
     return window.Laravel?.user?.role === 'Admin' || 

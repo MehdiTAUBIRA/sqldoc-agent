@@ -14,10 +14,11 @@ use App\Services\DatabaseStructureService;
 use App\Models\UserProjectAccess;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class ProjectController extends Controller
 {
-    use HasProjectPermissions;
+    use HasProjectPermissions, AuthorizesRequests;
 
     public function index()
     {
@@ -1390,52 +1391,33 @@ class ProjectController extends Controller
      */
     public function restore($id)
     {
-        try {
-            // Vérifier si l'utilisateur est admin
-            if (!auth()->user()->isAdmin()) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Accès non autorisé. Seuls les administrateurs peuvent restaurer des projets.'
-                ], 403);
-            }
-
-            $project = Project::withTrashed()
-                ->where('user_id', auth()->id())
-                ->findOrFail($id);
-            
-            if (!$project->trashed()) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Ce projet n\'est pas supprimé'
-                ], 400);
-            }
-
-            $project->restore();
-
-            Log::info('Projet restauré par admin', [
-                'project_id' => $id,
-                'project_name' => $project->name,
-                'admin_id' => auth()->id()
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Projet restauré avec succès'
-            ]);
-            
-        } catch (\Exception $e) {
-            Log::error('Erreur dans ProjectController::restore', [
-                'id' => $id,
-                'error' => $e->getMessage(),
-                'user_id' => auth()->id()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'error' => 'Erreur lors de la restauration du projet: ' . $e->getMessage()
-            ], 500);
+        
+        if (! auth()->user()->isAdmin()) {
+            return redirect()->back()
+                ->with('error', 'Restricted acces, onlt admin can restore the project.');
         }
+
+        $project = Project::withTrashed()
+            ->where('user_id', auth()->id())
+            ->findOrFail($id);
+
+        if (! $project->trashed()) {
+            return redirect()->back()
+                ->with('warning', 'project is not deleted');
+        }
+
+        $project->restore();
+
+        Log::info('Projet restauré par admin', [
+            'project_id' => $project->id,
+            'project_name' => $project->name,
+            'admin_id' => auth()->id(),
+        ]);
+
+        return redirect()->back()
+            ->with('success', 'Project succesfully restored');
     }
+
 
     /**
      * Suppression définitive d'un projet
