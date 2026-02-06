@@ -188,7 +188,7 @@
           <span>specific search</span>
         </Link>
         </li> -->
-
+        
         <!-- Section Tables -->
         <div v-if="shouldShowSection('tables')" class="px-6 py-3">
           <button @click="toggleSection('tables')" class="flex items-center w-full">
