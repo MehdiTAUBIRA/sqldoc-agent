@@ -1432,12 +1432,12 @@ class ProjectController extends Controller
 
             // Vérifier les permissions 
             if (!auth()->user()->isAdmin()) {
-                return back()->with('error', 'Accès restreint. Seul un administrateur peut supprimer définitivement ce projet.');
+                return back()->with('error', 'Restricted access. Only an admin can delete this project.');
             }
 
             $project = Project::withTrashed()->findOrFail($id);
             $projectName = $project->name;
-            $projectOwner = $project->user->name ?? 'Utilisateur supprimé';
+            $projectOwner = $project->user->name ?? 'User deleted';
 
             Log::info('🗑️ Début de suppression forcée du projet', [
                 'project_id' => $id,
