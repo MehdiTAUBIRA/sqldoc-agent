@@ -2,7 +2,7 @@
   "name": "sqldoc-electron",
   "version": "1.0.0",
   "description": "SQLINFO - Database Documentation Tool",
-  "author": "Mehdi Taubira",
+  "author": "Iceb sas",
   "main": "main.js",
   
   "scripts": {

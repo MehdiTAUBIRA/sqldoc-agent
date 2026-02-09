@@ -83,7 +83,8 @@ class TableController extends Controller
         // Récupérer les permissions
         $permissions = $this->getUserPermissions($request);
         $isOwner = $this->isProjectOwner($request);
-        $canEdit = $isOwner || ($permissions['can_write'] ?? false);
+        //$canEdit = $isOwner || ($permissions['can_write'] ?? false);
+         $canEdit = false;
 
         // Récupérer les colonnes
         $columns = TableStructure::where('id_table', $tableDesc->id)

@@ -42,7 +42,8 @@ class ViewController extends Controller
             // ✅ NOUVEAU : Déterminer les permissions
             $isOwner = $currentProject['is_owner'] ?? false;
             $accessLevel = $currentProject['access_level'] ?? 'read';
-            $canEdit = $isOwner || in_array($accessLevel, ['owner', 'Admin', 'write']);
+           // $canEdit = $isOwner || in_array($accessLevel, ['owner', 'Admin', 'write']);
+            $canEdit = false;
             
             Log::info('Permissions pour la vue', [
                 'view_name' => $viewName,

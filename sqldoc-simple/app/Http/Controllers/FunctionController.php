@@ -98,7 +98,8 @@ class FunctionController extends Controller
             $currentProject = session('current_project', []);
             $isOwner = $currentProject['is_owner'] ?? false;
             $accessLevel = $currentProject['access_level'] ?? 'read';
-            $canEdit = $isOwner || in_array($accessLevel, ['owner', 'Admin', 'write']);
+            //$canEdit = $isOwner || in_array($accessLevel, ['owner', 'Admin', 'write']);
+             $canEdit = false;
 
             Log::info('🔍 PERMISSIONS DEBUG', [
                 'is_owner' => $isOwner,
