@@ -10,7 +10,7 @@
 
     <div class="flex flex-col items-center">
         <img 
-            src="/images/openart-image_GwOKeCKx_1750239441227_raw.jpg"
+            src= "/images/LOGO_SQLinfo_V2.jpg"
             alt="SQL-INFO Logo"
             class="h-auto w-full object-contain"
         />

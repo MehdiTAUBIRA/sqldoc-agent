@@ -26,7 +26,7 @@
           <!-- Logo par défaut de votre app si pas de tenant -->
           <template v-else-if="!tenant && !imageError">
             <img 
-              src="/images/openart-image_GwOKeCKx_1750239441227_raw.jpg" 
+              src="/images/LOGO_SQLinfo_V2.svg" 
               alt="App logo"
               class="h-10 w-10 object-contain flex-shrink-0"
               @error="imageError = true"

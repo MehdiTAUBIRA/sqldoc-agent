@@ -4,7 +4,7 @@
             <div>
                 <h2 class="text-center text-3xl font-extrabold text-gray-900">
                     <img
-                        src="/images/openart-image_GwOKeCKx_1750239441227_raw.jpg"
+                        src="/images/LOGO_SQLinfo_V2.jpg"
                         class="h-10 w-auto mx-auto mb-4"
                     />
                     User Login
