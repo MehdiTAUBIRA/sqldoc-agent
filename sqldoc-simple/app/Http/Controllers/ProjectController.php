@@ -341,16 +341,26 @@ class ProjectController extends Controller
                 $databaseStructureService->extractAndSaveAllStructures($connectionName, $dbDescription->id);
                 Log::info('Structure extraite avec succès');
             } catch (\Exception $structureException) {
-                Log::error('Erreur extraction structure', ['error' => $structureException->getMessage()]);
+                Log::error('❌ Erreur extraction structure', [
+                    'error' => $structureException->getMessage(),
+                    'file' => $structureException->getFile(),
+                    'line' => $structureException->getLine(),
+                    'trace' => $structureException->getTraceAsString()
+                ]);
             }
+
+            Log::info('🎯 CHECKPOINT 1 - Après extraction');
+            Log::info('🎯 CHECKPOINT 2 - agentConnected() = ' . (agentConnected() ? 'TRUE' : 'FALSE'));
+            Log::info('🎯 CHECKPOINT 3 - $dbDescription->id = ' . $dbDescription->id);
 
             try {
                 if (agentConnected()) {
                     Log::info('🔄 Démarrage de la synchronisation immédiate vers l\'app web');
                     
-                    // Dispatcher un job pour synchroniser immédiatement
-                    dispatch(new \App\Jobs\SyncProjectToWebJob($dbDescription->id));
-                    
+                    Log::info('🚀 Exécution FORCÉE du job de sync');
+                    (new \App\Jobs\SyncProjectToWebJob($dbDescription->id))->handle();
+                    Log::info('✅ Job de sync terminé');
+                                        
                     Log::info('✅ Job de synchronisation dispatché avec succès');
                 } else {
                     Log::warning('⚠️ Agent non connecté, synchronisation ignorée');

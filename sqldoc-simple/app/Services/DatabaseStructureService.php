@@ -1514,11 +1514,11 @@ class DatabaseStructureService
                     foreach ($parameters as $param) {
                         $parametersToInsert[] = [
                             'id_ps' => $psDescription->id,
-                            'name' => $param['parameter_name'],
-                            'type' => $param['data_type'],
-                            'output' => $param['output_type'],
-                            'description' => $param['description'] ?? null,
-                            'default_value' => "null",
+                            'name' => $param['parameter_name'] ?? $param['PARAMETER_NAME'] ?? '',
+                            'type' => $param['data_type'] ?? $param['DATA_TYPE'] ?? 'unknown',  // ← FIX
+                            'output' => $param['output_type'] ?? $param['OUTPUT_TYPE'] ?? 'INPUT',
+                            'description' => $param['description'] ?? $param['DESCRIPTION'] ?? null,
+                            'default_value' => $param['default_value'] ?? null,
                             'created_at' => now(),
                             'updated_at' => now(),
                         ];
