@@ -355,17 +355,16 @@ class ProjectController extends Controller
 
             try {
                 if (agentConnected()) {
-                    Log::info('🔄 Démarrage de la synchronisation immédiate vers l\'app web');
+                    
                     
                     // ✅ AJOUTEZ CETTE PARTIE - Nettoyer les anciens mappings
                     try {
-                        Log::info('🧹 Nettoyage des anciens mappings pour resync depuis zéro');
+                        
                         
                         DB::table('sync_mappings')
                             ->whereIn('type', ['table', 'view', 'function', 'procedure', 'trigger'])
                             ->delete();
                         
-                        Log::info('✅ Anciens mappings supprimés');
                     } catch (\Exception $cleanupException) {
                         Log::error('❌ Erreur nettoyage mappings', [
                             'error' => $cleanupException->getMessage()
