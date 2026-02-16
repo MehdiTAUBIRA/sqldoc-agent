@@ -357,16 +357,29 @@ class ProjectController extends Controller
                 if (agentConnected()) {
                     Log::info('🔄 Démarrage de la synchronisation immédiate vers l\'app web');
                     
-                    Log::info('🚀 Exécution FORCÉE du job de sync');
+                    // ✅ AJOUTEZ CETTE PARTIE - Nettoyer les anciens mappings
+                    try {
+                        Log::info('🧹 Nettoyage des anciens mappings pour resync depuis zéro');
+                        
+                        DB::table('sync_mappings')
+                            ->whereIn('type', ['table', 'view', 'function', 'procedure', 'trigger'])
+                            ->delete();
+                        
+                        Log::info('✅ Anciens mappings supprimés');
+                    } catch (\Exception $cleanupException) {
+                        Log::error('❌ Erreur nettoyage mappings', [
+                            'error' => $cleanupException->getMessage()
+                        ]);
+                    }
+                    
+                    // Dispatcher le job
                     (new \App\Jobs\SyncProjectToWebJob($dbDescription->id))->handle();
-                    Log::info('✅ Job de sync terminé');
-                                        
+                    
                     Log::info('✅ Job de synchronisation dispatché avec succès');
                 } else {
                     Log::warning('⚠️ Agent non connecté, synchronisation ignorée');
                 }
             } catch (\Exception $syncException) {
-                // Ne pas bloquer si la sync échoue
                 Log::error('❌ Erreur lors de la synchronisation (non-bloquant)', [
                     'error' => $syncException->getMessage(),
                     'trace' => $syncException->getTraceAsString(),
