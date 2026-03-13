@@ -23,7 +23,7 @@
     </template>
 
     <div class="py-12">
-      <div class="max-w-10xl mx-auto sm:px-6 lg:px-8 space-y-8">
+      <div class="max-w-10xl mx-auto lg:-ml-6 sm:px-6 lg:px-8 space-y-8">
         <div v-if="loading" class="bg-white rounded-lg shadow-sm p-6">
           <div class="animate-pulse space-y-4">
             <div class="h-4 bg-gray-200 rounded w-1/4"></div>

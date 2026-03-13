@@ -11,7 +11,7 @@
                 <!-- ✅ Bouton d'aide flottant -->
                 <button
                     @click="restartTutorial"
-                    class="fixed bottom-6 right-6 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 hover:shadow-xl transition-all z-50 group"
+                    class="fixed bottom-6 right-6 bg-teal-600 text-white p-4 rounded-full shadow-lg hover:bg-teal-700 hover:shadow-xl transition-all z-50 group"
                     title="Show tutorial"
                 >
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -33,7 +33,7 @@
                                 <h3 class="text-lg font-medium text-gray-900">Login information</h3>
                                 <p class="text-sm text-gray-600">Database type: {{ getDbTypeName(project.db_type) }}</p>
 
-                                <div class="inline-flex items-start mt-1 mb-2 text-sm text-red-600 bg-blue-50 p-2 rounded-md">
+                                <div class="inline-flex items-start mt-1 mb-2 text-sm text-red-600 bg-teal-50 p-2 rounded-md">
                                     <svg class="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
                                     </svg>
@@ -126,7 +126,7 @@
                                             :checked="authMode === 'windows'"
                                             @change="updateAuthMode('windows')"
                                             :disabled="form.processing"
-                                            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                            class="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300"
                                         />
                                         <label for="windows-auth" class="ml-2 block text-sm text-gray-900">
                                             Windows Authentication
@@ -141,7 +141,7 @@
                                             :checked="authMode === 'sql'"
                                             @change="updateAuthMode('sql')"
                                             :disabled="form.processing"
-                                            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                            class="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300"
                                         />
                                         <label for="sql-auth" class="ml-2 block text-sm text-gray-900">
                                             SQL Server Authentication
@@ -250,7 +250,7 @@
                         </p>
                     </div>
                     <div class="ml-4 flex-shrink-0 flex">
-                        <button @click="hideToast" class="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        <button @click="hideToast" class="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500">
                             <span class="sr-only">Close</span>
                             <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
@@ -562,10 +562,10 @@ const getToastIconAndColor = computed(() => {
         default:
             return {
                 icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-                bgColor: 'bg-blue-50',
-                iconColor: 'text-blue-400',
-                titleColor: 'text-blue-800',
-                messageColor: 'text-blue-700'
+                bgColor: 'bg-teal-50',
+                iconColor: 'text-teal-400',
+                titleColor: 'text-teal-800',
+                messageColor: 'text-teal-700'
             };
     }
 });

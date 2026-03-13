@@ -23,7 +23,7 @@
     </template>
 
     <div class="py-12">
-      <div class="max-w-10xl mx-auto sm:px-6 lg:px-8 space-y-8">
+      <div class="max-w-10xl mx-auto lg:-ml-6 sm:px-6 lg:px-8 space-y-8">
         
         <!-- Loading spinner -->
         <div v-if="loading" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">

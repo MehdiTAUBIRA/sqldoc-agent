@@ -1124,44 +1124,53 @@ class DatabaseStructureService
                     AND o.is_ms_shipped = 0
                 ),
                 FunctionParameters AS (
-                    SELECT
-                        p.object_id,
-                        p.name AS parameter_name,
-                        TYPE_NAME(p.user_type_id) AS data_type,
-                        CASE WHEN p.is_output = 1 THEN 'OUTPUT' ELSE 'INPUT' END AS output_type,
-                        p.parameter_id,
-                        ISNULL(CONVERT(VARCHAR(8000), ep.value), '') AS description
-                    FROM sys.parameters p
-                    INNER JOIN sys.objects o ON p.object_id = o.object_id
-                    LEFT JOIN sys.extended_properties ep ON ep.major_id = p.object_id
-                        AND ep.minor_id = p.parameter_id
-                        AND ep.name = 'MS_Description'
-                    WHERE o.type IN ('FN', 'IF', 'TF')
-                    AND o.is_ms_shipped = 0
-                )
+    SELECT
+        p.object_id,
+        p.name AS parameter_name,
+        TYPE_NAME(p.user_type_id) AS data_type,
+        CASE WHEN p.is_output = 1 THEN 'OUTPUT' ELSE 'INPUT' END AS output_type,
+        p.parameter_id,
+        ISNULL(CONVERT(VARCHAR(8000), ep.value), '') AS description
+    FROM sys.parameters p
+    INNER JOIN sys.objects o ON p.object_id = o.object_id
+    LEFT JOIN sys.extended_properties ep ON ep.major_id = p.object_id
+        AND ep.minor_id = p.parameter_id
+        AND ep.name = 'MS_Description'
+    WHERE o.type IN ('FN', 'IF', 'TF')
+    AND o.is_ms_shipped = 0
+    AND p.parameter_id > 0
+)
                 SELECT
-                    fi.function_name,
-                    fi.schema_name,
-                    fi.function_type,
-                    fi.definition,
-                    fi.create_date,
-                    fi.modify_date,
-                    fi.description,
-                    NULL AS return_type,
-                    -- Paramètres en JSON
-                    (
-                        SELECT
-                            fp.parameter_name,
-                            fp.data_type,
-                            fp.output_type,
-                            fp.description
-                        FROM FunctionParameters fp
-                        WHERE fp.object_id = fi.object_id
-                        ORDER BY fp.parameter_id
-                        FOR JSON PATH
-                    ) AS parameters_json
-                FROM FunctionInfo fi
-                ORDER BY fi.schema_name, fi.function_name
+    fi.function_name,
+    fi.schema_name,
+    fi.function_type,
+    fi.definition,
+    fi.create_date,
+    fi.modify_date,
+    fi.description,
+
+    -- Return type réel
+    (
+        SELECT TYPE_NAME(p.user_type_id)
+        FROM sys.parameters p
+        WHERE p.object_id = fi.object_id
+        AND p.parameter_id = 0
+    ) AS return_type,
+
+    (
+        SELECT
+            fp.parameter_name,
+            fp.data_type,
+            fp.output_type,
+            fp.description
+        FROM FunctionParameters fp
+        WHERE fp.object_id = fi.object_id
+        ORDER BY fp.parameter_id
+        FOR JSON PATH
+    ) AS parameters_json
+
+FROM FunctionInfo fi
+ORDER BY fi.schema_name, fi.function_name
             ");
             
         } elseif ($databaseType === 'mysql') {

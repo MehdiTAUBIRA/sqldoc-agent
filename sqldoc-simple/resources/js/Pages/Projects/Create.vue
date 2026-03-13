@@ -57,7 +57,7 @@ onMounted(() => {
                 <!-- ✅ Bouton d'aide flottant -->
                 <button
                     @click="restartTutorial"
-                    class="fixed bottom-6 right-6 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 hover:shadow-xl transition-all z-50 group"
+                    class="fixed bottom-6 right-6 bg-teal-600 text-white p-4 rounded-full shadow-lg hover:bg-teal-700 hover:shadow-xl transition-all z-50 group"
                     title="Show tutorial"
                 >
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -94,7 +94,7 @@ onMounted(() => {
                             <InputLabel for="description" value="Description" />
                             <textarea
                                 id="description"
-                                class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                                class="mt-1 block w-full border-gray-300 focus:border-teal-500 focus:ring-teal-500 rounded-md shadow-sm"
                                 v-model="form.description"
                                 rows="3"
                                 placeholder="Brief description of your project (optional)"
@@ -111,7 +111,7 @@ onMounted(() => {
                                         v-for="(label, value) in dbTypes" 
                                         :key="value"
                                         class="border rounded-lg p-4 cursor-pointer transition-all"
-                                        :class="form.db_type === value ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'"
+                                        :class="form.db_type === value ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-200' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'"
                                         @click="form.db_type = value"
                                     >
                                         <div class="flex items-center justify-center">
@@ -124,7 +124,7 @@ onMounted(() => {
                                             />
                                             <label :for="value" class="text-center w-full cursor-pointer">
                                                 <span class="block font-medium text-gray-900">{{ label }}</span>
-                                                <span v-if="form.db_type === value" class="block text-xs text-indigo-600 mt-1">✓ Selected</span>
+                                                <span v-if="form.db_type === value" class="block text-xs text-teal-600 mt-1">✓ Selected</span>
                                             </label>
                                         </div>
                                     </div>

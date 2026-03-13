@@ -9,7 +9,7 @@
             <!--  Bouton aide -->
           <button
             @click="restartTutorial"
-            class="fixed bottom-6 right-6 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 hover:shadow-xl transition-all z-50 group"
+            class="fixed bottom-6 right-6 bg-teal-600 text-white p-4 rounded-full shadow-lg hover:bg-teal-700 hover:shadow-xl transition-all z-50 group"
             title="Show tutorial"
           >
             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -68,18 +68,18 @@
                     </div>
 
                     <!-- Message d'information -->
-                    <div v-else-if="flashMessage.type === 'info'" class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-md">
+                    <div v-else-if="flashMessage.type === 'info'" class="bg-teal-50 border-l-4 border-teal-400 p-4 rounded-md">
                         <div class="flex">
                             <div class="flex-shrink-0">
-                                <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                <svg class="h-5 w-5 text-teal-400" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
                                 </svg>
                             </div>
                             <div class="ml-3">
-                                <p class="text-sm text-blue-700">{{ flashMessage.message }}</p>
+                                <p class="text-sm text-teal-700">{{ flashMessage.message }}</p>
                             </div>
                             <div class="ml-auto pl-3">
-                                <button @click="hideFlashMessage" class="text-blue-400 hover:text-blue-600">
+                                <button @click="hideFlashMessage" class="text-teal-400 hover:text-teal-600">
                                     <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
                                     </svg>
@@ -118,7 +118,7 @@
                             :class="[
                                 'px-4 py-2 rounded-md text-sm font-medium',
                                 !showDeleted 
-                                    ? 'bg-indigo-100 text-indigo-700' 
+                                    ? 'bg-teal-100 text-teal-700' 
                                     : 'text-gray-500 hover:text-gray-700'
                             ]"
                         >
@@ -140,7 +140,7 @@
                     <Link
                         id="create-project-button"
                         :href="route('projects.create')"
-                        class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                        class="inline-flex items-center px-4 py-2 bg-teal-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-teal-700 focus:bg-teal-700 active:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition ease-in-out duration-150"
                     >
                         Create a new project
                     </Link>
@@ -158,7 +158,7 @@
                             <!-- Projets dont vous êtes propriétaire -->
                             <div v-if="ownedProjects.length > 0">
                             <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                <svg class="h-5 w-5 mr-2 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                <svg class="h-5 w-5 mr-2 text-teal-500" fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
                                 Your Projects ({{ ownedProjects.length }})
@@ -168,15 +168,15 @@
                                 v-for="(project, index) in ownedProjects" 
                                 :key="'owned-' + project.id"
                                 :id="index === 0 ? 'project-card-1' : undefined"
-                                class="border-2 border-blue-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-blue-50"
+                                class="border-2 border-teal-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-teal-50"
                                 >
-                                        <div class="p-4 border-b bg-blue-100">
+                                        <div class="p-4 border-b bg-teal-100">
                                             <div class="flex justify-between items-start">
                                                 <div class="flex-1">
                                                     <h4 class="text-lg font-semibold text-gray-800">{{ project.name }}</h4>
                                                     <p class="text-sm text-gray-600 mt-1">{{ project.description || 'No description' }}</p>
                                                     <div class="flex items-center space-x-2 mt-2">
-                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
                                                             {{ getBdTypeName(project.db_type) }}
                                                         </span>
                                                         <span :class="['inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border', getAccessColor(project.access_level)]">
@@ -201,7 +201,7 @@
                                                 <button
                                                     @click="openProject(project)"
                                                     :disabled="openingProject === project.id"
-                                                    class="inline-flex items-center px-3 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150 disabled:opacity-50"
+                                                    class="inline-flex items-center px-3 py-2 bg-teal-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-teal-700 focus:bg-teal-700 active:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition ease-in-out duration-150 disabled:opacity-50"
                                                 >
                                                     <span v-if="openingProject === project.id" class="flex items-center">
                                                         <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -221,7 +221,7 @@
                             <!-- Projets partagés avec vous -->
                             <div v-if="sharedProjects.length > 0">
                                 <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                    <svg class="h-5 w-5 mr-2 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <svg class="h-5 w-5 mr-2 text-teal-500" fill="currentColor" viewBox="0 0 20 20">
                                         <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>
                                     </svg>
                                     Shared with You ({{ sharedProjects.length }})
@@ -230,9 +230,9 @@
                                     <div 
                                         v-for="project in sharedProjects" 
                                         :key="'shared-' + project.id"
-                                        class="border-2 border-blue-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-blue-50"
+                                        class="border-2 border-teal-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-teal-50"
                                     >
-                                        <div class="p-4 border-b bg-blue-100">
+                                        <div class="p-4 border-b bg-teal-100">
                                             <div class="flex justify-between items-start">
                                                 <div class="flex-1">
                                                     <h4 class="text-lg font-semibold text-gray-800">{{ project.name }}</h4>
@@ -258,7 +258,7 @@
                                                 <button
                                                     @click="openProject(project)"
                                                     :disabled="openingProject === project.id"
-                                                    class="inline-flex items-center px-3 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ease-in-out duration-150 disabled:opacity-50"
+                                                    class="inline-flex items-center px-3 py-2 bg-teal-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-teal-700 focus:bg-teal-700 active:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition ease-in-out duration-150 disabled:opacity-50"
                                                 >
                                                     <span v-if="openingProject === project.id" class="flex items-center">
                                                         <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -348,7 +348,7 @@
                 </div>
                 
                 <div v-if="loadingDependencies" class="text-center py-8">
-                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mx-auto mb-4"></div>
                     <p class="text-gray-600">Loading dependencies...</p>
                 </div>
                 
@@ -591,7 +591,7 @@ const getAccessColor = (accessLevel) => {
         case 'write':
             return 'bg-green-100 text-green-800 border-green-200';
         case 'read':
-            return 'bg-blue-100 text-blue-800 border-blue-200';
+            return 'bg-teal-100 text-teal-800 border-teal-200';
         default:
             return 'bg-gray-100 text-gray-800 border-gray-200';
     }

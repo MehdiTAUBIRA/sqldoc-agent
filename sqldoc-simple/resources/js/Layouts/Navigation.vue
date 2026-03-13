@@ -1,5 +1,5 @@
 <template>
-  <aside class="z-20 hidden w-80 md:w-96 overflow-y-auto bg-blue-500 md:block flex-shrink-0">
+  <aside class="z-20 hidden w-80 md:w-96 overflow-y-auto bg-teal-500 md:block flex-shrink-0">
     <div class="py-4 text-white">
       <Link class="ml-6 text-lg font-bold text-gray-200" :href="route('projects.index')">
         {{ appName }}
@@ -9,7 +9,7 @@
       </span>
 
       <!-- Logo compact -->
-      <div class="px-6 mb-6 pb-4 border-b border-blue-600">
+      <div class="px-6 mb-6 pb-4 border-b border-teal-600">
         <div class="flex items-center space-x-3">
           <!-- Logo du tenant si disponible -->
           <template v-if="tenant?.logo && !imageError">
@@ -24,18 +24,18 @@
           </template>
           
           <!-- Logo par défaut de votre app si pas de tenant -->
-          <template v-else-if="!tenant && !imageError">
+          <!-- <template v-else-if="!tenant && !imageError">
             <img 
               src="/images/LOGO_SQLinfo_V3.svg" 
               alt="App logo"
               class="h-12 w-12 object-contain flex-shrink-0"
               @error="imageError = true"
             />
-          </template>
+          </template> -->
           
           <!-- Fallback: Initiale dans un cercle coloré -->
           <template v-else>
-            <div class="h-10 w-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
+            <div class="h-10 w-10 bg-gradient-to-br from-teal-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
               <span class="text-white font-bold text-lg">
                 {{ (tenant?.name || appName)?.charAt(0) || 'A' }}
               </span>
@@ -123,7 +123,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
           Loading error
-          <button @click="refreshNavigation" class="ml-2 text-blue-200 hover:text-white underline">
+          <button @click="refreshNavigation" class="ml-2 text-teal-200 hover:text-white underline">
             Refresh
           </button>
         </div>
@@ -139,11 +139,11 @@
       <!-- Interface de navigation normale -->
       <div v-else>
         <!-- Informations de debug (seulement en dev) ligne de separation--> 
-        <div v-if="showDebugInfo" class="px-6 py-2 text-xs text-gray-300 border-b border-blue-600">
+        <div v-if="showDebugInfo" class="px-6 py-2 text-xs text-gray-300 border-b border-teal-600">
           <!-- <div>Objets: {{ navigationData.metadata?.total_objects || 0 }}</div>
           <div>Temps: {{ navigationData.metadata?.execution_time_ms || 0 }}ms</div>
           <div>Cache: {{ navigationData.metadata?.generated_at ? 'Oui' : 'Non' }}</div>
-          <button @click="refreshNavigation" class="text-blue-200 hover:text-white underline">
+          <button @click="refreshNavigation" class="text-teal-200 hover:text-white underline">
             Actualiser
           </button> -->
         </div>
@@ -154,7 +154,7 @@
             type="text"
             v-model="searchQuery"
             placeholder="Search..."
-            class="w-full px-3 py-2 text-sm text-gray-900 bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+            class="w-full px-3 py-2 text-sm text-gray-900 bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-600"
           />
         </div> -->
 
@@ -167,7 +167,7 @@
             :class="[
               'px-2 py-1 text-xs rounded-full transition-colors',
               activeFilters.includes(filter.type)
-                ? 'bg-blue-700 text-white'
+                ? 'bg-teal-700 text-white'
                 : 'bg-gray-200 text-gray-800'
             ]"
           >
@@ -190,7 +190,7 @@
         </li> -->
         
         <!-- Section Tables -->
-        <div v-if="shouldShowSection('tables')" class="px-6 py-3">
+        <!-- <div v-if="shouldShowSection('tables')" class="px-6 py-3">
           <button @click="toggleSection('tables')" class="flex items-center w-full">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path :d="isOpen.tables ? 'M19 9l-7 7-7-7' : 'M9 5l7 7-7 7'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
@@ -236,10 +236,10 @@
               No Tables found
             </li>
           </ul>
-        </div>
+        </div> -->
 
         <!-- Section Vues -->
-        <div v-if="shouldShowSection('views')" class="px-6 py-3">
+        <!-- <div v-if="shouldShowSection('views')" class="px-6 py-3">
           <button @click="toggleSection('views')" class="flex items-center w-full">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path :d="isOpen.views ? 'M19 9l-7 7-7-7' : 'M9 5l7 7-7 7'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
@@ -271,10 +271,10 @@
               No Views found
             </li>
           </ul>
-        </div>
+        </div> -->
 
         <!-- Section Fonctions -->
-        <div v-if="shouldShowSection('functions')" class="px-6 py-3">
+        <!-- <div v-if="shouldShowSection('functions')" class="px-6 py-3">
           <button @click="toggleSection('functions')" class="flex items-center w-full">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path :d="isOpen.functions ? 'M19 9l-7 7-7-7' : 'M9 5l7 7-7 7'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
@@ -302,10 +302,10 @@
               No functions found
             </li>
           </ul>
-        </div>
+        </div> -->
 
         <!-- Section Procédures -->
-        <div v-if="shouldShowSection('procedures')" class="px-6 py-3">
+        <!-- <div v-if="shouldShowSection('procedures')" class="px-6 py-3">
           <button @click="toggleSection('procedures')" class="flex items-center w-full">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path :d="isOpen.procedures ? 'M19 9l-7 7-7-7' : 'M9 5l7 7-7 7'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
@@ -335,10 +335,10 @@
               No procedures found
             </li>
           </ul>
-        </div>
+        </div> -->
 
         <!-- Section Triggers -->
-        <div v-if="shouldShowSection('triggers')" class="px-6 py-3">
+        <!-- <div v-if="shouldShowSection('triggers')" class="px-6 py-3">
           <button @click="toggleSection('triggers')" class="flex items-center w-full">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path :d="isOpen.triggers ? 'M19 9l-7 7-7-7' : 'M9 5l7 7-7 7'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
@@ -366,7 +366,7 @@
               No triggers found
             </li>
           </ul>
-        </div>
+        </div> -->
       </div>
     </div>
   </aside>

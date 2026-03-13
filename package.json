@@ -1,7 +1,7 @@
 {
   "name": "sqldoc-electron",
-  "version": "1.0.0",
-  "description": "SQLINFO - Database Documentation Tool",
+  "version": "1.0.12",
+  "description": "SQLINFO - agent for charging database to web",
   "author": "Iceb sas",
   "main": "main.js",
   
@@ -15,7 +15,7 @@
   
   "build": {
     "appId": "com.sqldoc.app",
-    "productName": "SQLINFO",
+    "productName": "SQLINFO-Agent",
     "asar": true,
     "asarUnpack": [
       "**/*.exe",

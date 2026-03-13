@@ -11,6 +11,7 @@ use App\Models\DbDescription;
 use App\Models\TableDescription;
 use App\Models\TableStructure;
 use App\Models\TableRelation;
+use App\Models\TableIndex;
 use App\Models\ViewDescription;
 use App\Models\PsDescription;
 use App\Models\FunctionDescription;
@@ -76,8 +77,10 @@ class DashboardController extends Controller
             $tableIds = TableDescription::where('dbid', $dbId)->pluck('id')->toArray();
             
             $columnsCount = TableStructure::whereIn('id_table', $tableIds)->count();
-            $primaryKeysCount = TableStructure::whereIn('id_table', $tableIds)
-                ->where('key', 'PK')
+            $primaryKeysCount = TableIndex::join('table_description', 'table_index.id_table', '=', 'table_description.id')
+                ->join('db_description', 'db_description.id', '=', 'table_description.dbid')
+                ->where('table_index.properties', 'like', '%primary key%')
+                ->where('table_description.dbid', $dbId)
                 ->count();
             $foreignKeysCount = TableRelation::whereIn('id_table', $tableIds)->count();
 

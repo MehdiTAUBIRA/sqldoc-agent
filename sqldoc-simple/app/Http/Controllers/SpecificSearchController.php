@@ -48,13 +48,27 @@ class SpecificSearchController extends Controller
         // Recherche dans les tables
         if ($request->boolean('in_tables') && $request->filled('column')) {
             DB::enableQueryLog();
-            
+
+            $search = trim($request->column);
+            $searchTerms = preg_split('/\s+/', $search);
+
             $tableResults = TableStructure::query()
                 ->with('TableDescription:id,tablename')
                 ->whereHas('TableDescription', function ($q) use ($currentDbId) {
                     $q->where('dbid', $currentDbId);
                 })
-                ->where('column', 'like', '%' . $request->column . '%')
+                ->where(function ($query) use ($search, $searchTerms) {
+
+                    $query->orWhere('column', 'like', '%' . $search . '%');
+
+                    if (count($searchTerms) > 1) {
+                        $query->orWhere('column', 'like', '%' . implode('', $searchTerms) . '%');
+                    }
+
+                    foreach ($searchTerms as $term) {
+                        $query->orWhere('column', 'like', '%' . $term . '%');
+                    }
+                })
                 ->get();
             
             $queries = DB::getQueryLog();

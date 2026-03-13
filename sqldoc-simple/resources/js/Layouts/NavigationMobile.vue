@@ -1,4 +1,5 @@
 <template>
+  <div>
   <transition
       enter-active-class="transition ease-in-out duration-150"
       enter-from-class="opacity-0"
@@ -8,6 +9,7 @@
       leave-to-class="opacity-0">
     <div v-show="$page.props.showingMobileMenu" class="fixed inset-0 z-10 flex items-end bg-black bg-opacity-50 sm:items-center sm:justify-center"></div>
   </transition>
+
   <transition
       enter-active-class="transition ease-in-out duration-150"
       enter-from-class="opacity-0 transform -translate-x-20"
@@ -15,10 +17,10 @@
       leave-active-class="transition ease-in-out duration-150"
       leave-from-class="opacity-100"
       leave-to-class="opacity-0 transform -translate-x-20">
-    <aside v-show="$page.props.showingMobileMenu" class="fixed inset-y-0 z-20 flex-shrink-0 w-64 mt-16 overflow-y-auto bg-blue-500 md:hidden">
+    <aside v-show="$page.props.showingMobileMenu" class="fixed inset-y-0 z-20 flex-shrink-0 w-64 mt-16 overflow-y-auto bg-teal-500 md:hidden">
       <div class="py-4 text-gray-500">
         <Link class="ml-6 text-lg font-bold text-gray-800" :href="route('dashboard')">
-        SQL-INFO 2025
+        SQL-INFO
       </Link>
         <ul class="mt-6">
           <!-- <li class="relative px-6 py-3">
@@ -79,7 +81,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
             Erreur de chargement
-            <button @click="refreshNavigation" class="ml-2 text-blue-200 hover:text-white underline">
+            <button @click="refreshNavigation" class="ml-2 text-teal-200 hover:text-white underline">
               Actualiser
             </button>
           </div>
@@ -100,7 +102,7 @@
               type="text"
               v-model="searchQuery"
               placeholder="Rechercher..."
-              class="w-full px-3 py-2 text-sm text-gray-900 bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+              class="w-full px-3 py-2 text-sm text-gray-900 bg-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-600"
             />
           </div> -->
 
@@ -113,7 +115,7 @@
               :class="[
                 'px-2 py-1 text-xs rounded-full transition-colors',
                 activeFilters.includes(filter.type)
-                  ? 'bg-blue-700 text-white'
+                  ? 'bg-teal-700 text-white'
                   : 'bg-gray-200 text-gray-800'
               ]"
             >
@@ -122,7 +124,7 @@
           </div>
 
           <!-- Section Tables -->
-          <div v-if="shouldShowSection('tables')" class="px-6 py-3">
+          <!-- <div v-if="shouldShowSection('tables')" class="px-6 py-3">
             <button @click="toggleSection('tables')" class="flex items-center w-full text-white">
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path :d="isOpen.tables ? 'M19 9l-7 7-7-7' : 'M9 5l7 7-7 7'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
@@ -158,10 +160,10 @@
                 No Tables found
               </li>
             </ul>
-          </div>
+          </div> -->
 
           <!-- Section Vues -->
-          <div v-if="shouldShowSection('views')" class="px-6 py-3">
+          <!-- <div v-if="shouldShowSection('views')" class="px-6 py-3">
             <button @click="toggleSection('views')" class="flex items-center w-full text-white">
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path :d="isOpen.views ? 'M19 9l-7 7-7-7' : 'M9 5l7 7-7 7'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
@@ -188,10 +190,10 @@
                 No Views found
               </li>
             </ul>
-          </div>
+          </div> -->
 
           <!-- Section Fonctions -->
-          <div v-if="shouldShowSection('functions')" class="px-6 py-3">
+          <!-- <div v-if="shouldShowSection('functions')" class="px-6 py-3">
             <button @click="toggleSection('functions')" class="flex items-center w-full text-white">
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path :d="isOpen.functions ? 'M19 9l-7 7-7-7' : 'M9 5l7 7-7 7'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
@@ -216,10 +218,10 @@
                 No functions found
               </li>
             </ul>
-          </div>
+          </div> -->
 
           <!-- Section Procédures -->
-          <div v-if="shouldShowSection('procedures')" class="px-6 py-3">
+          <!-- <div v-if="shouldShowSection('procedures')" class="px-6 py-3">
             <button @click="toggleSection('procedures')" class="flex items-center w-full text-white">
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path :d="isOpen.procedures ? 'M19 9l-7 7-7-7' : 'M9 5l7 7-7 7'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
@@ -245,10 +247,10 @@
                 No procedures found
               </li>
             </ul>
-          </div>
+          </div> -->
 
           <!-- Section Triggers -->
-          <div v-if="shouldShowSection('triggers')" class="px-6 py-3">
+          <!-- <div v-if="shouldShowSection('triggers')" class="px-6 py-3">
             <button @click="toggleSection('triggers')" class="flex items-center w-full text-white">
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path :d="isOpen.triggers ? 'M19 9l-7 7-7-7' : 'M9 5l7 7-7 7'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
@@ -273,11 +275,12 @@
                 No triggers found
               </li>
             </ul>
-          </div>
+          </div> -->
         <!-- </div> -->
       </div>
     </aside>
   </transition>
+  </div>
 </template>
 
 <script setup>

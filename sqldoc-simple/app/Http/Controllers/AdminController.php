@@ -16,6 +16,60 @@ use Illuminate\Support\Facades\Auth;
 
 class AdminController extends Controller
 {
+
+    function generateStrongPassword(int $length = 16, int $minUppercase = 1, int $minLowercase = 1, int $minNumbers = 1, int $minSpecial = 1, bool $avoidAmbiguous = true): string 
+    {
+    
+        if ($length < 16) {
+            throw new InvalidArgumentException('La longueur minimale est 16 caractères.');
+        }
+
+        $lowercase = 'abcdefghijklmnopqrstuvwxyz';
+        $uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $numbers   = '0123456789';
+        $special   = '!@#$%^&*()-_=+[]{}:;?';
+
+        if ($avoidAmbiguous) {
+            $lowercase = str_replace(['l','o'], '', $lowercase);
+            $uppercase = str_replace(['I','O'], '', $uppercase);
+            $numbers   = str_replace(['0','1'], '', $numbers);
+        }
+
+        $requiredTotal = $minUppercase + $minLowercase + $minNumbers + $minSpecial;
+
+        if ($requiredTotal > $length) {
+            throw new InvalidArgumentException('La somme des minimums dépasse la longueur demandée.');
+        }
+
+        $password = [];
+
+        for ($i = 0; $i < $minUppercase; $i++) {
+            $password[] = $uppercase[random_int(0, strlen($uppercase) - 1)];
+        }
+
+        for ($i = 0; $i < $minLowercase; $i++) {
+            $password[] = $lowercase[random_int(0, strlen($lowercase) - 1)];
+        }
+
+        for ($i = 0; $i < $minNumbers; $i++) {
+            $password[] = $numbers[random_int(0, strlen($numbers) - 1)];
+        }
+
+        for ($i = 0; $i < $minSpecial; $i++) {
+            $password[] = $special[random_int(0, strlen($special) - 1)];
+        }
+
+        $all = $lowercase . $uppercase . $numbers . $special;
+
+        for ($i = count($password); $i < $length; $i++) {
+            $password[] = $all[random_int(0, strlen($all) - 1)];
+        }
+
+        shuffle($password);
+
+        return implode('', $password);
+    }
+
     public function index()
     {
         return Inertia::render('Admin/Index', [
