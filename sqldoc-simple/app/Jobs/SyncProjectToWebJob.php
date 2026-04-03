@@ -47,7 +47,11 @@ class SyncProjectToWebJob implements ShouldQueue
                 try {
                     $this->syncProjectParent($apiService, $dbDescription);
                 } catch (\Exception $e) {
-                    Log::error('❌ Error syncing project parent', ['error' => $e->getMessage()]);
+                    if (str_starts_with($e->getMessage(), 'LIMIT_REACHED')) {
+                        Log::error(' Sync stopped: ' . $e->getMessage());
+                        throw $e; 
+                    }
+                    Log::error(' Error syncing project parent', ['error' => $e->getMessage()]);
                 }
             }
 
@@ -55,7 +59,11 @@ class SyncProjectToWebJob implements ShouldQueue
             try {
                 $this->syncProject($apiService, $dbDescription);
             } catch (\Exception $e) {
-                Log::error('❌ Error syncing project', ['error' => $e->getMessage()]);
+                if (str_starts_with($e->getMessage(), 'LIMIT_REACHED')) {
+                    Log::error(' Sync stopped: ' . $e->getMessage());
+                    throw $e; 
+                }
+                Log::error(' Error syncing project', ['error' => $e->getMessage()]);
                 throw $e;
             }
 
@@ -63,31 +71,31 @@ class SyncProjectToWebJob implements ShouldQueue
             try {
                 $this->syncTablesBatch($apiService, $dbDescription);
             } catch (\Exception $e) {
-                Log::error('❌ Error syncing tables', ['error' => $e->getMessage()]);
+                Log::error(' Error syncing tables', ['error' => $e->getMessage()]);
             }
 
             try {
                 $this->syncViewsBatch($apiService, $dbDescription);
             } catch (\Exception $e) {
-                Log::error('❌ Error syncing views', ['error' => $e->getMessage()]);
+                Log::error(' Error syncing views', ['error' => $e->getMessage()]);
             }
 
             try {
                 $this->syncFunctionsBatch($apiService, $dbDescription);
             } catch (\Exception $e) {
-                Log::error('❌ Error syncing functions', ['error' => $e->getMessage()]);
+                Log::error(' Error syncing functions', ['error' => $e->getMessage()]);
             }
 
             try {
                 $this->syncProceduresBatch($apiService, $dbDescription);
             } catch (\Exception $e) {
-                Log::error('❌ Error syncing procedures', ['error' => $e->getMessage()]);
+                Log::error(' Error syncing procedures', ['error' => $e->getMessage()]);
             }
 
             try {
                 $this->syncTriggersBatch($apiService, $dbDescription);
             } catch (\Exception $e) {
-                Log::error('❌ Error syncing triggers', ['error' => $e->getMessage()]);
+                Log::error(' Error syncing triggers', ['error' => $e->getMessage()]);
             }
 
             $duration = round(microtime(true) - $startTime, 2);
@@ -100,7 +108,7 @@ class SyncProjectToWebJob implements ShouldQueue
         } catch (\Exception $e) {
             $duration = round(microtime(true) - $startTime, 2);
             
-            Log::error('❌ SyncProjectToWebJob: Erreur générale', [
+            Log::error(' SyncProjectToWebJob: Erreur générale', [
                 'error' => $e->getMessage(),
                 'duration' => $duration . 's',
                 'trace' => $e->getTraceAsString(),
@@ -108,7 +116,6 @@ class SyncProjectToWebJob implements ShouldQueue
             throw $e;
         }
     }
-
     /**
      * ✅ Helper pour upsert les mappings en masse
      */
@@ -162,6 +169,13 @@ class SyncProjectToWebJob implements ShouldQueue
                 'release' => $project->release ?? null,
             ]);
 
+            if (isset($response['limit_reached']) && $response['limit_reached'] === true) {
+                Log::error('🚫 PROJECT LIMIT REACHED: ' . ($response['error'] ?? 'Unknown error'), [
+                    'project_id' => $dbDescription->project_id,
+                ]);
+                throw new \Exception('LIMIT_REACHED: ' . ($response['error'] ?? 'Project limit reached'));
+            }
+
             $remoteId = $response['id'] ?? null;
             
             if ($remoteId) {
@@ -171,9 +185,11 @@ class SyncProjectToWebJob implements ShouldQueue
             }
             
         } catch (\Exception $e) {
-            Log::error('❌ Erreur sync projet parent', [
+            Log::error(' Erreur sync projet parent', [
                 'error' => $e->getMessage()
             ]);
+
+            throw $e;
         }
         
         return null;
@@ -195,15 +211,23 @@ class SyncProjectToWebJob implements ShouldQueue
                 'project_id' => $remoteProjectId,
             ]);
 
+            if (isset($response['limit_reached']) && $response['limit_reached'] === true) {
+                Log::error('🚫 DATABASE LIMIT REACHED: ' . ($response['error'] ?? 'Unknown error'), [
+                    'dbname' => $dbDescription->dbname,
+                ]);
+                throw new \Exception('LIMIT_REACHED: ' . ($response['error'] ?? 'Database limit reached'));
+            }
+
             $remoteId = $response['id'] ?? null;
             if ($remoteId) {
                 SyncMapping::saveMapping('db_description', $dbDescription->id, $remoteId);
             }
             
         } catch (\Exception $e) {
-            Log::error('❌ Erreur sync db_description', [
+            Log::error(' Erreur sync db_description', [
                 'error' => $e->getMessage()
             ]);
+
             throw $e;
         }
     }
@@ -340,7 +364,7 @@ class SyncProjectToWebJob implements ShouldQueue
                 });
             
         } catch (\Exception $e) {
-            Log::error('❌ Error in table details sync', [
+            Log::error(' Error in table details sync', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -454,7 +478,7 @@ class SyncProjectToWebJob implements ShouldQueue
                 });
             
         } catch (\Exception $e) {
-            Log::error('❌ Error in view details sync', ['error' => $e->getMessage()]);
+            Log::error(' Error in view details sync', ['error' => $e->getMessage()]);
         }
     }
 
@@ -563,7 +587,7 @@ class SyncProjectToWebJob implements ShouldQueue
                 });
             
         } catch (\Exception $e) {
-            Log::error('❌ Error in function details sync', ['error' => $e->getMessage()]);
+            Log::error(' Error in function details sync', ['error' => $e->getMessage()]);
         }
     }
 
@@ -673,7 +697,7 @@ class SyncProjectToWebJob implements ShouldQueue
                 });
             
         } catch (\Exception $e) {
-            Log::error('❌ Error in procedure details sync', ['error' => $e->getMessage()]);
+            Log::error(' Error in procedure details sync', ['error' => $e->getMessage()]);
         }
     }
 
@@ -771,7 +795,7 @@ class SyncProjectToWebJob implements ShouldQueue
                 });
             
         } catch (\Exception $e) {
-            Log::error('❌ Error in trigger details sync', ['error' => $e->getMessage()]);
+            Log::error(' Error in trigger details sync', ['error' => $e->getMessage()]);
         }
     }
 
@@ -792,7 +816,7 @@ class SyncProjectToWebJob implements ShouldQueue
             try {
                 $apiService->post($endpoint, [$key => $chunk]);
             } catch (\Exception $e) {
-                Log::error("❌ Failed to sync {$key} batch", [
+                Log::error(" Failed to sync {$key} batch", [
                     'batch' => ($index + 1),
                     'error' => $e->getMessage()
                 ]);

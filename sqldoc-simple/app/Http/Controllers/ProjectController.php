@@ -202,6 +202,21 @@ class ProjectController extends Controller
         return redirect()->back()->with('error', 'Only the project owner can configure database connections.');
     }
 
+    if (agentConnected()) {
+        $apiService = app(\App\Services\ApiService::class);
+        try {
+            $response = $apiService->get('/api/check-project-limit');
+            if (isset($response['limit_reached']) && $response['limit_reached'] === true) {
+                return back()->with('error', $response['message'] ?? 'Project limit reached. Please upgrade your plan.');
+            }
+        } catch (\Exception $e) {
+            if (str_starts_with($e->getMessage(), 'LIMIT_REACHED')) {
+                $limitMessage = str_replace('LIMIT_REACHED: ', '', $e->getMessage());
+                return back()->with('error', $limitMessage);
+            }
+        }
+    }
+
     try {
         // Validation
         $rules = [
@@ -353,37 +368,45 @@ class ProjectController extends Controller
             Log::info('🎯 CHECKPOINT 2 - agentConnected() = ' . (agentConnected() ? 'TRUE' : 'FALSE'));
             Log::info('🎯 CHECKPOINT 3 - $dbDescription->id = ' . $dbDescription->id);
 
+            Log::info('🔍 CHECKPOINT SYNC - avant agentConnected()');
+
             try {
-                if (agentConnected()) {
-                    
-                    
-                    // ✅ AJOUTEZ CETTE PARTIE - Nettoyer les anciens mappings
-                    try {
-                        
-                        
+                    if (agentConnected()) {
+                        Log::info('🔍 AVANT handle()');
                         DB::table('sync_mappings')
                             ->whereIn('type', ['table', 'view', 'function', 'procedure', 'trigger'])
                             ->delete();
                         
-                    } catch (\Exception $cleanupException) {
-                        Log::error('❌ Erreur nettoyage mappings', [
-                            'error' => $cleanupException->getMessage()
-                        ]);
+                        (new \App\Jobs\SyncProjectToWebJob($dbDescription->id))->handle();
+                         Log::info('🔍 APRÈS handle() - pas d exception');
+                        Log::info('✅ Job de synchronisation dispatché avec succès');
+                        
+                    } else {
+                        Log::warning('⚠️ Agent non connecté, synchronisation ignorée');
+                    }
+                } catch (\Throwable $syncException) {
+                    if (str_starts_with($syncException->getMessage(), 'LIMIT_REACHED')) {
+
+                        $limitMessage = str_replace('LIMIT_REACHED: ', '', $syncException->getMessage());
+                        Log::warning('🚫 Limite atteinte lors de la sync', ['message' => $limitMessage]);
+                        
+                        // Supprimer le DbDescription créé localement
+                        try {
+                            $dbDescription->delete();
+                            Log::info('🗑️ DbDescription local supprimé suite à la limite atteinte');
+                        } catch (\Exception $deleteException) {
+                            Log::error('Erreur suppression DbDescription local', [
+                                'error' => $deleteException->getMessage()
+                            ]);
+                        }
+                        
+                        return back()->with('error', $limitMessage);
                     }
                     
-                    // Dispatcher le job
-                    (new \App\Jobs\SyncProjectToWebJob($dbDescription->id))->handle();
-                    
-                    Log::info('✅ Job de synchronisation dispatché avec succès');
-                } else {
-                    Log::warning('⚠️ Agent non connecté, synchronisation ignorée');
+                    Log::error('❌ Erreur lors de la synchronisation (non-bloquant)', [
+                        'error' => $syncException->getMessage(),
+                    ]);
                 }
-            } catch (\Exception $syncException) {
-                Log::error('❌ Erreur lors de la synchronisation (non-bloquant)', [
-                    'error' => $syncException->getMessage(),
-                    'trace' => $syncException->getTraceAsString(),
-                ]);
-            }
 
             // Sauvegarde des infos de connexion cryptées
             try {
@@ -418,8 +441,15 @@ class ProjectController extends Controller
             Log::error('Erreur générale handleConnect', [
                 'project_id' => $project->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
+                'class' => get_class($e),
             ]);
+
+            if (str_starts_with($e->getMessage(), 'LIMIT_REACHED')) {
+                $limitMessage = str_replace('LIMIT_REACHED: ', '', $e->getMessage());
+                return back()->with('error', $limitMessage); // ← ici aussi
+            }
+
             $errorMessage = 'An unexpected error occurred: ' . $e->getMessage();
             return \Inertia\Inertia::render('Projects/Connect', [
                 'project' => $project,

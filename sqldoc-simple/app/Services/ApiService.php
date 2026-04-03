@@ -94,7 +94,7 @@ class ApiService
             throw new \Exception('Agent not connected');
         }
 
-        // Construire l'URL complète
+        
         $url = $this->identity->api_url . $endpoint;
 
         // Décrypter le token
@@ -127,11 +127,15 @@ class ApiService
 
             if ($response->failed()) {
                 $errorBody = $response->body();
+                $errorJson = $response->json();
                 Log::error('API POST request failed', [
                     'endpoint' => $endpoint,
                     'status' => $response->status(),
                     'body' => $errorBody,
                 ]);
+                if ($response->status() === 403 && isset($errorJson['limit_reached']) && $errorJson['limit_reached'] === true) {
+                    throw new \Exception('LIMIT_REACHED: ' . ($errorJson['error'] ?? 'Limit reached'));
+                }
                 throw new \Exception("API request failed: {$response->status()} - {$errorBody}");
             }
 
