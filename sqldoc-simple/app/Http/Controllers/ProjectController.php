@@ -286,7 +286,7 @@ class ProjectController extends Controller
                 // ✅ OPTIONS PDO - UNIQUEMENT celles supportées par sqlsrv
                 $config['options'] = [
                     \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                    // ❌ NE PAS mettre PDO::ATTR_TIMEOUT pour SQL Server - pas supporté
+                    // NE PAS mettre PDO::ATTR_TIMEOUT pour SQL Server - pas supporté
                 ];
 
                 Log::info('Configuration SQL Server', [
@@ -342,9 +342,11 @@ class ProjectController extends Controller
             return \Inertia\Inertia::render('Projects/Connect', ['project' => $project, 'flash' => ['error' => $errorMessage]]);
         }
 
+            $webUserId = session('web_user_id') ?? auth()->id();
+            
             // Sauvegarde DbDescription
             $dbDescription = DbDescription::updateOrCreate(
-                ['project_id' => $project->id, 'user_id' => auth()->id()],
+                ['project_id' => $project->id, 'user_id' => $webUserId],
                 ['dbname' => $validated['database'], 'description' => $validated['description'] ?? null]
             );
 

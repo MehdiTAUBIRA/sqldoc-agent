@@ -116,7 +116,7 @@ class AgentAuthService
                 'agent_id' => $data['agent_id'],
                 'tenant_id' => $data['tenant_id'],
                 'tenant_name' => $data['tenant_name'] ?? null,
-                'organization_name' => $data['tenant_name'] ?? null, // Par défaut
+                'organization_name' => $data['tenant_name'] ?? null,
                 'is_active' => true,
                 'connected_at' => now(),
                 'last_connected_at' => now(),

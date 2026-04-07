@@ -164,7 +164,7 @@ class SyncProjectToWebJob implements ShouldQueue
             $response = $apiService->post('/api/project-parents', [
                 'name' => $project->name ?? null,
                 'description' => $project->description ?? null,
-                'user_id' => $project->user_id ?? null,
+                'user_id' => session('web_user_id') ?? $project->user_id ?? null,
                 'db_type' => $project->db_type ?? null,
                 'release' => $project->release ?? null,
             ]);
@@ -205,7 +205,7 @@ class SyncProjectToWebJob implements ShouldQueue
             }
 
             $response = $apiService->post('/api/projects', [
-                'user_id' => $dbDescription->user_id,
+                'user_id' => session('web_user_id') ?? $dbDescription->user_id,
                 'dbname' => $dbDescription->dbname,
                 'description' => $dbDescription->description,
                 'project_id' => $remoteProjectId,

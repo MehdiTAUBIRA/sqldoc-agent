@@ -245,6 +245,13 @@ class AgentAuthController extends Controller
 
             Log::info('✅ User session created');
 
+            $request->session()->put('web_user_id', $userData['id']);
+
+            Log::info('✅ User session created', [
+                'local_id' => $user->id,
+                'web_id' => $userData['id'],
+            ]);
+
             return redirect()->intended(route('projects.index'));
 
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
