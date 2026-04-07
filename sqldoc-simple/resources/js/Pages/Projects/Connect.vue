@@ -249,12 +249,12 @@
                     >
                         Close
                     </button>
-                    <Link
+                    <!-- <Link
                         href="/admin/subscription"
                         class="px-4 py-2 text-sm text-white bg-teal-600 rounded-md hover:bg-teal-700"
                     >
                         Upgrade plan
-                    </Link>
+                    </Link> -->
                 </div>
             </div>
         </div>
