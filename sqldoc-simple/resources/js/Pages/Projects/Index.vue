@@ -137,7 +137,16 @@
                         </button>
                     </div>
 
+                    <button
+                        v-if="limitReached"
+                        @click="showLimitError"
+                        id="create-project-button"
+                        class="inline-flex items-center px-4 py-2 bg-gray-400 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest cursor-not-allowed"
+                    >
+                        Create a new project
+                    </button>
                     <Link
+                        v-else
                         id="create-project-button"
                         :href="route('projects.create')"
                         class="inline-flex items-center px-4 py-2 bg-teal-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-teal-700 focus:bg-teal-700 active:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition ease-in-out duration-150"
@@ -534,7 +543,9 @@ const { showProjectsGuide } = useDriver();
 const props = defineProps({
     projects: Array,
     deletedProjects: Array,
-    stats: Object
+    stats: Object,
+    limitReached: { type: Boolean, default: false },
+    limitMessage: { type: String, default: null },
 });
 
 const page = usePage();
@@ -928,4 +939,7 @@ const restartTutorial = () => {
   showProjectsGuide();
 };
 
+const showLimitError = () => {
+    warning(props.limitMessage)
+}
 </script>

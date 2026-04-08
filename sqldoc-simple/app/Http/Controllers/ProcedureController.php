@@ -505,7 +505,7 @@ class ProcedureController extends Controller
             $canEdit = $currentProject['is_owner'] ?? false;
             
             if (!$canEdit) {
-                return back()->withErrors(['error' => 'Permissions insuffisantes']);
+                return back()->withErrors(['error' => 'Insufficient permissions']);
             }
 
             $oldDefaultValue = $parameter->default_value;
@@ -530,7 +530,7 @@ class ProcedureController extends Controller
                 'error' => $e->getMessage()
             ]);
             
-            return back()->withErrors(['error' => 'Erreur lors de la sauvegarde: ' . $e->getMessage()]);
+            return back()->withErrors(['error' => 'Error while saving: ' . $e->getMessage()]);
         }
     }
 
@@ -577,14 +577,14 @@ class ProcedureController extends Controller
                     'available_parameters' => PsParameter::where('id_ps', $procedureDesc->id)->get(['id', 'name'])->toArray()
                 ]);
                 
-                return back()->withErrors(['error' => 'Paramètre non trouvé: ' . $parameterName]);
+                return back()->withErrors(['error' => 'Can find parameter: ' . $parameterName]);
             }
 
             $currentProject = session('current_project', []);
             $canEdit = $currentProject['is_owner'] ?? false;
             
             if (!$canEdit) {
-                return back()->withErrors(['error' => 'Permissions insuffisantes']);
+                return back()->withErrors(['error' => 'Insufficient permissions']);
             }
 
             $oldDescription = $parameter->description;
@@ -827,7 +827,7 @@ class ProcedureController extends Controller
             $canEdit = $currentProject['is_owner'] ?? false;
             
             if (!$canEdit) {
-                return back()->withErrors(['error' => 'Permissions insuffisantes']);
+                return back()->withErrors(['error' => 'Insufficient permissions']);
             }
 
             $oldDescription = $procedureDesc->description;
@@ -891,7 +891,7 @@ class ProcedureController extends Controller
             $canEdit = $currentProject['is_owner'] ?? false;
             
             if (!$canEdit) {
-                return back()->withErrors(['error' => 'Permissions insuffisantes']);
+                return back()->withErrors(['error' => 'Insufficient permissions']);
             }
 
             $oldReleaseId = $parameter->release_id;

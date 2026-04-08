@@ -24,6 +24,22 @@ class ProjectController extends Controller
     {
         $userId = auth()->id();
         $user = auth()->user();
+
+        $limitReached = false;
+        $limitMessage = null;
+
+        if (agentConnected()) {
+            $apiService = app(\App\Services\ApiService::class);
+            try {
+                $response = $apiService->get('/api/check-project-limit');
+                if (isset($response['limit_reached']) && $response['limit_reached'] === true) {
+                    $limitReached = true;
+                    $limitMessage = $response['message'] ?? 'Project limit reached. Please upgrade your plan.';
+                }
+            } catch (\Exception $e) {
+                
+            }
+        }
         
         $ownedProjects = Project::where('user_id', $userId)
             ->whereNull('deleted_at')
@@ -113,6 +129,8 @@ class ProjectController extends Controller
                 'total' => $allProjects->count(),
                 'deleted' => count($deletedProjects) 
             ],
+            'limitReached' => $limitReached,
+            'limitMessage' => $limitMessage,
         ]);
     }
 
