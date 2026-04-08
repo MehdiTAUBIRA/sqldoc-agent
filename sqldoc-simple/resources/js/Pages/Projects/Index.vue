@@ -140,6 +140,7 @@
                     <button
                         v-if="limitReached"
                         @click="showLimitError"
+                        :title="limitMessage"
                         id="create-project-button"
                         class="inline-flex items-center px-4 py-2 bg-gray-400 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest cursor-not-allowed"
                     >
@@ -183,6 +184,7 @@
                                             <div class="flex justify-between items-start">
                                                 <div class="flex-1">
                                                     <h4 class="text-lg font-semibold text-gray-800">{{ project.name }}</h4>
+                                                    <h4 class="text-sm  text-gray-800">Creation date: {{ project.created_at }}</h4>
                                                     <p class="text-sm text-gray-600 mt-1">{{ project.description || 'No description' }}</p>
                                                     <div class="flex items-center space-x-2 mt-2">
                                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
