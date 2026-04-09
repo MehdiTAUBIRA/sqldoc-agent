@@ -175,14 +175,21 @@ class DatabaseStructureService
                     i.object_id AS table_id,
                     i.name AS index_name,
                     i.type_desc AS index_type,
-                    STRING_AGG(c.name, ', ') WITHIN GROUP (ORDER BY ic.key_ordinal) AS column_names,
+                    STUFF((
+                        SELECT ', ' + c2.name
+                        FROM sys.index_columns ic2
+                        INNER JOIN sys.columns c2 
+                            ON ic2.object_id = c2.object_id 
+                            AND ic2.column_id = c2.column_id
+                        WHERE ic2.object_id = i.object_id 
+                        AND ic2.index_id = i.index_id
+                        ORDER BY ic2.key_ordinal
+                        FOR XML PATH(''), TYPE
+                    ).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS column_names,
                     i.is_unique,
                     i.is_primary_key
                 FROM sys.indexes i
-                INNER JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
-                INNER JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
                 WHERE i.name IS NOT NULL
-                GROUP BY i.object_id, i.name, i.type_desc, i.is_unique, i.is_primary_key
             ),
             ForeignKeyInfo AS (
                 SELECT
