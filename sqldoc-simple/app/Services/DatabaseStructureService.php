@@ -155,7 +155,11 @@ class DatabaseStructureService
                     c.precision,
                     c.scale,
                     c.is_nullable,
-                    CASE WHEN pk.column_id IS NOT NULL THEN 'PK' ELSE '' END AS key_type,
+                    CASE 
+                        WHEN pk.column_id IS NOT NULL THEN 'PK'
+                        WHEN fk.parent_column_id IS NOT NULL THEN 'FK'
+                        ELSE '' 
+                    END AS key_type,
                     ISNULL(CONVERT(VARCHAR(8000), ep.value), '') AS description,
                     c.column_id
                 FROM sys.columns c
@@ -166,6 +170,10 @@ class DatabaseStructureService
                     INNER JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
                     WHERE i.is_primary_key = 1
                 ) pk ON pk.column_id = c.column_id AND pk.object_id = c.object_id
+                LEFT JOIN (
+                    SELECT DISTINCT fkc.parent_column_id, fkc.parent_object_id
+                    FROM sys.foreign_key_columns fkc
+                ) fk ON fk.parent_column_id = c.column_id AND fk.parent_object_id = c.object_id
                 LEFT JOIN sys.extended_properties ep ON ep.major_id = c.object_id
                     AND ep.minor_id = c.column_id
                     AND ep.name = 'MS_Description'
