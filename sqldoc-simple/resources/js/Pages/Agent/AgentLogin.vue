@@ -125,7 +125,7 @@
                         <p class="mt-1 text-xs text-gray-500">
                             ⚠️ Enter only the base URL
                             <br>
-                            ✅ Example: https://test.test-sqlinfo.io
+                            ✅ Example: https://test.sqlinfo.io
                         </p>
                     </div>
 

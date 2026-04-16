@@ -381,6 +381,7 @@ function createWindow() {
     width: 1200,
     height: 800,
     show: false,
+    title: 'SQLINFO',
     backgroundColor: '#1a1a2e',
     icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
@@ -461,7 +462,13 @@ function createWindow() {
     log('🔴 Window closed');
     mainWindow = null;
   });
+  
+  mainWindow.on('page-title-updated', (event) => {
+    event.preventDefault();
+});
 }
+
+
 
 // ===== ÉVÉNEMENT: APPLICATION PRÊTE =====
 app.on('ready', () => {

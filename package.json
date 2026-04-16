@@ -1,6 +1,6 @@
 {
   "name": "sqldoc-electron",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "SQLINFO - agent for charging database to web",
   "author": "Iceb sas",
   "main": "main.js",
@@ -16,6 +16,7 @@
   "build": {
     "appId": "com.sqldoc.app",
     "productName": "SQLINFO-Agent",
+    "icon": "build/icon.ico",
     "asar": true,
     "asarUnpack": [
       "**/*.exe",
@@ -98,6 +99,7 @@
       "deleteAppDataOnUninstall": true,
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
       "artifactName": "${productName}-Setup-${version}.${ext}",
       "packElevateHelper": false,
       "differentialPackage": false,
