@@ -522,7 +522,40 @@ app.on('ready', () => {
     
     // ===== MIGRATIONS (première exécution uniquement) =====
     const migrationMarker = path.join(userDataPath, '.migrations-done');
+    const versionMarker = path.join(userDataPath, '.app-version');
+    const currentVersion = app.getVersion();
     
+    let previousVersion = null;
+    if (fs.existsSync(versionMarker)) {
+    previousVersion = fs.readFileSync(versionMarker, 'utf8').trim();
+    }
+
+    const versionChanged = previousVersion !== currentVersion;
+
+    if (versionChanged) {
+        log(`🔄 Version changed: ${previousVersion} → ${currentVersion}`);
+        log('🗑️ Cleaning old data...');
+        
+        // Supprimer l'ancienne base de données
+        const dbPath = path.join(userDataPath, 'database', 'database.sqlite');
+        if (fs.existsSync(dbPath)) {
+            fs.unlinkSync(dbPath);
+            fs.writeFileSync(dbPath, '');
+            log('✅ Database cleared');
+        }
+        
+        // Supprimer le marker de migration pour forcer une nouvelle migration
+        if (fs.existsSync(migrationMarker)) {
+            fs.unlinkSync(migrationMarker);
+            log('✅ Migration marker cleared');
+        }
+        
+        // Mettre à jour la version
+        fs.writeFileSync(versionMarker, currentVersion);
+        log('✅ Version marker updated to ' + currentVersion);
+    }
+
+
     if (!fs.existsSync(migrationMarker)) {
       log('🔄 Running migrations (first run)...');
       

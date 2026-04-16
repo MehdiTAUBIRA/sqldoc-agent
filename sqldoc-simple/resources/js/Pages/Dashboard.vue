@@ -15,7 +15,7 @@
 		</div>
 	  </template>
   
-	  <div class="py-12">
+	  <div class="py-2">
 		<div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
 		  <!-- État de chargement -->
 		  <div v-if="loading" class="space-y-6">
