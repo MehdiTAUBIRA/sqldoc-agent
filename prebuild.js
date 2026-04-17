@@ -20,6 +20,7 @@ try {
   execSync('php artisan config:cache', { cwd: laravelPath, stdio: 'inherit' });
   execSync('php artisan route:cache', { cwd: laravelPath, stdio: 'inherit' });
   execSync('php artisan view:cache', { cwd: laravelPath, stdio: 'inherit' });
+  execSync('php artisan config:clear', { cwd: laravelPath });
 } catch (e) {
   console.log('⚠️  Cache failed (might be ok)');
 }

@@ -461,6 +461,9 @@ function createWindow() {
   mainWindow.on('closed', () => {
     log('🔴 Window closed');
     mainWindow = null;
+    if (syncInterval) clearInterval(syncInterval);
+    if (phpProcess) phpProcess.kill();
+    app.quit();
   });
   
   mainWindow.on('page-title-updated', (event) => {
@@ -513,28 +516,16 @@ app.on('ready', () => {
 
   // ===== INITIALISATION DE LARAVEL =====
   try {
-    initializeLaravel(laravelPath);
-    
     const userDataPath = app.getPath('userData');
-    const dbPath = path.join(userDataPath, 'database', 'database.sqlite');
     
-    log('🔍 Checking database...');
-    log('   Path: ' + dbPath);
-    log('   Exists: ' + fs.existsSync(dbPath));
-    
-    if (fs.existsSync(dbPath)) {
-      const stats = fs.statSync(dbPath);
-      log('   Size: ' + stats.size + ' bytes');
-    }
-    
-    // ===== MIGRATIONS (première exécution uniquement) =====
+    // ===== 1. VÉRIFIER LA VERSION EN PREMIER =====
     const migrationMarker = path.join(userDataPath, '.migrations-done');
     const versionMarker = path.join(userDataPath, '.app-version');
     const currentVersion = app.getVersion();
     
     let previousVersion = null;
     if (fs.existsSync(versionMarker)) {
-    previousVersion = fs.readFileSync(versionMarker, 'utf8').trim();
+        previousVersion = fs.readFileSync(versionMarker, 'utf8').trim();
     }
 
     const versionChanged = previousVersion !== currentVersion;
@@ -543,68 +534,69 @@ app.on('ready', () => {
         log(`🔄 Version changed: ${previousVersion} → ${currentVersion}`);
         log('🗑️ Cleaning old data...');
         
-        // Supprimer l'ancienne base de données
-        const dbPath = path.join(userDataPath, 'database', 'database.sqlite');
-        if (fs.existsSync(dbPath)) {
-            fs.unlinkSync(dbPath);
-            fs.writeFileSync(dbPath, '');
-            log('✅ Database cleared');
-        }
+        const itemsToDelete = [
+            path.join(userDataPath, 'database'),
+            path.join(userDataPath, 'storage'),
+            path.join(userDataPath, 'bootstrap'),
+            path.join(userDataPath, 'php.ini'),
+            path.join(userDataPath, '.migrations-done'),
+        ];
         
-        // Supprimer le marker de migration pour forcer une nouvelle migration
-        if (fs.existsSync(migrationMarker)) {
-            fs.unlinkSync(migrationMarker);
-            log('✅ Migration marker cleared');
-        }
+        itemsToDelete.forEach(item => {
+            if (fs.existsSync(item)) {
+                fs.rmSync(item, { recursive: true, force: true });
+                log('✅ Deleted: ' + item);
+            }
+        });
         
-        // Mettre à jour la version
         fs.writeFileSync(versionMarker, currentVersion);
         log('✅ Version marker updated to ' + currentVersion);
     }
 
+    // ===== 2. INITIALISER LARAVEL APRÈS LE NETTOYAGE =====
+    initializeLaravel(laravelPath);
+    
+    const dbPath = path.join(userDataPath, 'database', 'database.sqlite');
+    
+    log('🔍 Checking database...');
+    log('   Path: ' + dbPath);
+    log('   Exists: ' + fs.existsSync(dbPath));
 
+    // ===== 3. MIGRATIONS =====
     if (!fs.existsSync(migrationMarker)) {
-      log('🔄 Running migrations (first run)...');
-      
-      const phpIniPath = getPhpIniPath();
-      
-      try {
-        const migrateCmd = `"${phpPath}" -c "${phpIniPath}" artisan migrate --force`;
-        log('   Command: ' + migrateCmd);
-        log('   DB Path: ' + dbPath);
-        log('   Cert Path: ' + certsPath);
+        log('🔄 Running migrations (first run)...');
         
-        const phpEnv = createPhpEnvironment();
+        const phpIniPath = getPhpIniPath();
         
-        const result = execSync(migrateCmd, {
-          cwd: laravelPath,
-          encoding: 'utf8',
-          windowsHide: true,
-          env: phpEnv
-        });
-        
-        log('   Migration output: ' + result);
-        fs.writeFileSync(migrationMarker, new Date().toISOString());
-        log('✅ Migrations done');
-      } catch (error) {
-        log('❌ Migration failed: ' + error.message);
-        if (error.stdout) log('   stdout: ' + error.stdout);
-        if (error.stderr) log('   stderr: ' + error.stderr);
-        
-        // On continue même si les migrations échouent (peut-être déjà exécutées)
-        log('⚠️ Continuing despite migration error...');
-      }
+        try {
+            const migrateCmd = `"${phpPath}" -c "${phpIniPath}" artisan migrate --force`;
+            const phpEnv = createPhpEnvironment();
+            
+            const result = execSync(migrateCmd, {
+                cwd: laravelPath,
+                encoding: 'utf8',
+                windowsHide: true,
+                env: phpEnv
+            });
+            
+            log('   Migration output: ' + result);
+            fs.writeFileSync(migrationMarker, new Date().toISOString());
+            log('✅ Migrations done');
+        } catch (error) {
+            log('❌ Migration failed: ' + error.message);
+            log('⚠️ Continuing despite migration error...');
+        }
     } else {
-      log('✅ Migrations already done');
+        log('✅ Migrations already done');
     }
     
-  } catch (error) {
+} catch (error) {
     log('❌ Failed to initialize: ' + error.message);
     log('Stack: ' + error.stack);
     dialog.showErrorBox('Erreur initialisation', error.message + '\n\nLog: ' + logFile);
     app.quit();
     return;
-  }
+}
 
   // ===== DÉMARRAGE DU SERVEUR PHP =====
   log('🚀 Starting PHP server...');

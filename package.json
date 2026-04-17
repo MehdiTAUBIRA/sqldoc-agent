@@ -1,5 +1,5 @@
 {
-  "name": "sqldoc-electron",
+  "name": "sqlinfo-agent",
   "version": "1.0.15",
   "description": "SQLINFO - agent for charging database to web",
   "author": "Iceb sas",
@@ -70,15 +70,12 @@
         {
           "target": "nsis",
           "arch": ["x64"]
-        },
-        {
-          "target": "portable",
-          "arch": ["x64"]
         }
       ],
       "icon": "build/icon.ico",
+      "executableName": "SQLINFO-Agent",
       "verifyUpdateCodeSignature": false,
-      "signAndEditExecutable": false,
+      "signAndEditExecutable": true,
       "signExts": [],
       "extraResources": [
         {
@@ -91,6 +88,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "shortcutName": "${productName}",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "perMachine": false,
@@ -103,13 +101,15 @@
       "artifactName": "${productName}-Setup-${version}.${ext}",
       "packElevateHelper": false,
       "differentialPackage": false,
-      "useZip": true
+      "useZip": true,
+      "include": "installer.nsh"
     },
     "files": [
       "main.js",
       "preload.js",
       "package.json",
-      "build/icon.png"
+      "build/icon.png",
+      "build/icon.ico"
     ]
   },
   
