@@ -5,7 +5,7 @@ const http = require('http');
 const fs = require('fs');
 const axios = require('axios');
 
-// ✅ Système de logging
+//  Système de logging
 const logFile = path.join(require('os').tmpdir(), 'sqlinfo-startup.log');
 
 function log(message) {
@@ -19,9 +19,9 @@ function log(message) {
   }
 }
 
-// ✅ Capturer toutes les erreurs
+//  Capturer toutes les erreurs
 process.on('uncaughtException', (error) => {
-  log('❌ UNCAUGHT EXCEPTION: ' + error.message);
+  log(' UNCAUGHT EXCEPTION: ' + error.message);
   log('Stack: ' + error.stack);
   dialog.showErrorBox('Erreur Critique', 
     'Une erreur inattendue s\'est produite.\n\n' +
@@ -30,12 +30,12 @@ process.on('uncaughtException', (error) => {
 });
 
 process.on('unhandledRejection', (reason) => {
-  log('❌ UNHANDLED REJECTION: ' + reason);
+  log(' UNHANDLED REJECTION: ' + reason);
 });
 
-log("🚀 main.js started");
-log("🖥️  Platform: " + process.platform);
-log("📁 Log file: " + logFile);
+log(" main.js started");
+log("  Platform: " + process.platform);
+log(" Log file: " + logFile);
 
 app.commandLine.appendSwitch('disable-http-cache');
 app.commandLine.appendSwitch('disk-cache-size', '0');
@@ -99,8 +99,8 @@ function getCertsPath() {
     certsPath = path.join(__dirname, 'certs', 'cacert.pem');
   }
   
-  log('🔍 Certificate path: ' + certsPath);
-  log('🔍 Certificate exists: ' + fs.existsSync(certsPath));
+  log(' Certificate path: ' + certsPath);
+  log(' Certificate exists: ' + fs.existsSync(certsPath));
   
   return certsPath;
 }
@@ -114,7 +114,7 @@ function getPhpIniPath() {
 
 // ===== INITIALISATION DE LARAVEL =====
 function initializeLaravel(laravelPath) {
-  log('🔧 Initializing Laravel...');
+  log(' Initializing Laravel...');
 
   // 1️⃣ Supprimer les caches Laravel
   const cachesToClear = [
@@ -126,7 +126,7 @@ function initializeLaravel(laravelPath) {
   cachesToClear.forEach(cache => {
     if (fs.existsSync(cache)) {
       fs.unlinkSync(cache);
-      log('   🗑️  Removed cached file: ' + path.basename(cache));
+      log('     Removed cached file: ' + path.basename(cache));
     }
   });
   
@@ -135,9 +135,9 @@ function initializeLaravel(laravelPath) {
   const storagePath = path.join(userDataPath, 'storage');
   const databasePath = path.join(userDataPath, 'database');
   
-  log('📁 User data path: ' + userDataPath);
-  log('📁 Storage path: ' + storagePath);
-  log('📁 Database path: ' + databasePath);
+  log(' User data path: ' + userDataPath);
+  log(' Storage path: ' + storagePath);
+  log(' Database path: ' + databasePath);
   
   const requiredDirs = [
     path.join(storagePath, 'logs'),
@@ -152,7 +152,7 @@ function initializeLaravel(laravelPath) {
   requiredDirs.forEach(dir => {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
-      log(`   ✅ Created: ${dir}`);
+      log(`    Created: ${dir}`);
     }
   });
   
@@ -160,7 +160,7 @@ function initializeLaravel(laravelPath) {
   const dbPath = path.join(databasePath, 'database.sqlite');
   if (!fs.existsSync(dbPath)) {
     fs.writeFileSync(dbPath, '');
-    log('   ✅ Created database.sqlite');
+    log('    Created database.sqlite');
   }
   
   // 4️⃣ Créer un .env minimal dans AppData
@@ -198,15 +198,15 @@ QUEUE_CONNECTION=sync
   
   // Écrire dans AppData
   fs.writeFileSync(envPathAppData, envContent);
-  log('   ✅ Created minimal .env in AppData');
+  log('    Created minimal .env in AppData');
   
   // Essayer de copier dans Laravel (si possible)
   const envPathLaravel = path.join(laravelPath, '.env');
   try {
     fs.writeFileSync(envPathLaravel, envContent);
-    log('   ✅ Copied .env to Laravel folder');
+    log('    Copied .env to Laravel folder');
   } catch (error) {
-    log('   ⚠️  Could not write to Laravel folder (will use env vars)');
+    log('     Could not write to Laravel folder (will use env vars)');
   }
   
   log('   DB path: ' + dbPath.replace(/\\/g, '/'));
@@ -215,7 +215,7 @@ QUEUE_CONNECTION=sync
   process.env.SQLINFO_STORAGE_PATH = storagePath;
   process.env.SQLINFO_DATABASE_PATH = dbPath;
   
-  log('✅ Laravel initialized');
+  log(' Laravel initialized');
 }
 
 // ===== FONCTION POUR CRÉER UN php.ini DYNAMIQUE =====
@@ -236,8 +236,8 @@ openssl.cafile="${cert}"
   const dynamicIni = path.join(app.getPath('userData'), 'php.ini');
   fs.writeFileSync(dynamicIni, content);
 
-  log('✅ php.ini generated: ' + dynamicIni);
-  log('✅ CA path: ' + cert);
+  log(' php.ini generated: ' + dynamicIni);
+  log(' CA path: ' + cert);
 
   return dynamicIni;
 }
@@ -301,28 +301,28 @@ function createPhpEnvironment() {
 // ===== FONCTION POUR DÉCLENCHER LA SYNCHRONISATION =====
 async function triggerSync() {
   try {
-    log('🔄 Triggering sync...');
+    log(' Triggering sync...');
     const response = await axios.post('http://127.0.0.1:8000/api/sync-trigger', {
       timeout: 30000,
     });
-    log('✅ Sync completed');
+    log(' Sync completed');
   } catch (error) {
     if (error.code === 'ECONNREFUSED') {
-      log('⚠️  Server not ready for sync');
+      log('  Server not ready for sync');
     } else if (error.response && error.response.status === 401) {
-      log('⚠️  Agent not connected, skipping sync');
+      log('  Agent not connected, skipping sync');
     } else {
-      log('❌ Sync failed: ' + error.message);
+      log(' Sync failed: ' + error.message);
     }
   }
 }
 
 // ===== FONCTION POUR DÉMARRER L'INTERVALLE DE SYNC =====
 function startSyncInterval() {
-  log('🔄 Starting sync interval (every 5 minutes)...');
+  log(' Starting sync interval (every 5 minutes)...');
   setTimeout(() => { triggerSync(); }, 60000);
   syncInterval = setInterval(() => { triggerSync(); }, 5 * 60 * 1000);
-  log('✅ Sync interval configured');
+  log(' Sync interval configured');
 }
 
 // ===== FONCTION POUR VÉRIFIER SI LE SERVEUR EST PRÊT =====
@@ -337,7 +337,7 @@ function checkServerReady(url, maxRetries = 30, callback) {
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
         if (res.statusCode === 500) {
-          log('❌ Server Error 500');
+          log(' Server Error 500');
           log('Error response: ' + data.substring(0, 500));
           
           const errorFile = path.join(app.getPath('desktop'), 'sqldoc-error.html');
@@ -355,12 +355,12 @@ function checkServerReady(url, maxRetries = 30, callback) {
       });
     }).on('error', (err) => {
       retries++;
-      log(`⏳ Waiting for server... (${retries}/${maxRetries})`);
+      log(` Waiting for server... (${retries}/${maxRetries})`);
       
       if (retries < maxRetries) {
         setTimeout(check, 1000);
       } else {
-        log('❌ Server failed to start');
+        log(' Server failed to start');
         dialog.showErrorBox(
           'Erreur de démarrage',
           'Le serveur PHP n\'a pas pu démarrer.\n\nLog: ' + logFile
@@ -375,7 +375,7 @@ function checkServerReady(url, maxRetries = 30, callback) {
 
 // ===== FONCTION POUR CRÉER LA FENÊTRE =====
 function createWindow() {
-  log('📱 Creating window...');
+  log(' Creating window...');
   
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -445,21 +445,21 @@ function createWindow() {
   
   mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(loadingHTML)}`);
   mainWindow.show();
-  log('✅ Window shown');
+  log(' Window shown');
 
   checkServerReady('http://127.0.0.1:8000', 30, (isReady) => {
     if (isReady) {
-      log('✅ Server ready, loading application...');
+      log(' Server ready, loading application...');
       mainWindow.loadURL('http://127.0.0.1:8000');
       startSyncInterval();
     } else {
-      log('❌ Server not ready, quitting...');
+      log(' Server not ready, quitting...');
       app.quit();
     }
   });
 
   mainWindow.on('closed', () => {
-    log('🔴 Window closed');
+    log(' Window closed');
     mainWindow = null;
     if (syncInterval) clearInterval(syncInterval);
     if (phpProcess) phpProcess.kill();
@@ -482,37 +482,37 @@ app.on('ready', () => {
   const laravelPath = getLaravelPath();
   const certsPath = getCertsPath();
 
-  log('📁 PHP path: ' + phpPath);
-  log('📁 Laravel path: ' + laravelPath);
-  log('📁 Certs path: ' + certsPath);
-  log('📁 Is packaged: ' + isPackaged);
+  log(' PHP path: ' + phpPath);
+  log(' Laravel path: ' + laravelPath);
+  log(' Certs path: ' + certsPath);
+  log(' Is packaged: ' + isPackaged);
 
   // ===== VÉRIFICATION 1: PHP existe =====
   if (!fs.existsSync(phpPath)) {
-    log('❌ PHP not found');
+    log(' PHP not found');
     dialog.showErrorBox('Erreur', 'PHP introuvable: ' + phpPath + '\n\nLog: ' + logFile);
     app.quit();
     return;
   }
-  log('✅ PHP found');
+  log(' PHP found');
 
   // ===== VÉRIFICATION 2: Laravel existe =====
   if (!fs.existsSync(laravelPath)) {
-    log('❌ Laravel not found');
+    log(' Laravel not found');
     dialog.showErrorBox('Erreur', 'Laravel introuvable: ' + laravelPath + '\n\nLog: ' + logFile);
     app.quit();
     return;
   }
-  log('✅ Laravel found');
+  log(' Laravel found');
 
   // ===== VÉRIFICATION 3: Certificat SSL existe =====
   if (!fs.existsSync(certsPath)) {
-    log('❌ Certificate not found');
+    log(' Certificate not found');
     dialog.showErrorBox('Erreur', 'Certificat SSL introuvable: ' + certsPath + '\n\nLog: ' + logFile);
     app.quit();
     return;
   }
-  log('✅ Certificate found');
+  log(' Certificate found');
 
   // ===== INITIALISATION DE LARAVEL =====
   try {
@@ -531,8 +531,8 @@ app.on('ready', () => {
     const versionChanged = previousVersion !== currentVersion;
 
     if (versionChanged) {
-        log(`🔄 Version changed: ${previousVersion} → ${currentVersion}`);
-        log('🗑️ Cleaning old data...');
+        log(` Version changed: ${previousVersion} → ${currentVersion}`);
+        log(' Cleaning old data...');
         
         const itemsToDelete = [
             path.join(userDataPath, 'database'),
@@ -545,12 +545,12 @@ app.on('ready', () => {
         itemsToDelete.forEach(item => {
             if (fs.existsSync(item)) {
                 fs.rmSync(item, { recursive: true, force: true });
-                log('✅ Deleted: ' + item);
+                log(' Deleted: ' + item);
             }
         });
         
         fs.writeFileSync(versionMarker, currentVersion);
-        log('✅ Version marker updated to ' + currentVersion);
+        log(' Version marker updated to ' + currentVersion);
     }
 
     // ===== 2. INITIALISER LARAVEL APRÈS LE NETTOYAGE =====
@@ -558,13 +558,13 @@ app.on('ready', () => {
     
     const dbPath = path.join(userDataPath, 'database', 'database.sqlite');
     
-    log('🔍 Checking database...');
+    log(' Checking database...');
     log('   Path: ' + dbPath);
     log('   Exists: ' + fs.existsSync(dbPath));
 
     // ===== 3. MIGRATIONS =====
     if (!fs.existsSync(migrationMarker)) {
-        log('🔄 Running migrations (first run)...');
+        log(' Running migrations (first run)...');
         
         const phpIniPath = getPhpIniPath();
         
@@ -581,17 +581,17 @@ app.on('ready', () => {
             
             log('   Migration output: ' + result);
             fs.writeFileSync(migrationMarker, new Date().toISOString());
-            log('✅ Migrations done');
+            log(' Migrations done');
         } catch (error) {
-            log('❌ Migration failed: ' + error.message);
-            log('⚠️ Continuing despite migration error...');
+            log(' Migration failed: ' + error.message);
+            log(' Continuing despite migration error...');
         }
     } else {
-        log('✅ Migrations already done');
+        log(' Migrations already done');
     }
     
 } catch (error) {
-    log('❌ Failed to initialize: ' + error.message);
+    log(' Failed to initialize: ' + error.message);
     log('Stack: ' + error.stack);
     dialog.showErrorBox('Erreur initialisation', error.message + '\n\nLog: ' + logFile);
     app.quit();
@@ -599,15 +599,15 @@ app.on('ready', () => {
 }
 
   // ===== DÉMARRAGE DU SERVEUR PHP =====
-  log('🚀 Starting PHP server...');
+  log(' Starting PHP server...');
 
   const phpIniPath = getPhpIniPath();
   const basePhpIniPath = phpIniPath;
   const dynamicPhpIniPath = createDynamicPhpIni(basePhpIniPath, certsPath);
 
-  log('🧪 Using php.ini: ' + dynamicPhpIniPath);
-  log('🧪 Cert path: ' + certsPath);
-  log('🧪 Cert exists: ' + fs.existsSync(certsPath));
+  log(' Using php.ini: ' + dynamicPhpIniPath);
+  log(' Cert path: ' + certsPath);
+  log(' Cert exists: ' + fs.existsSync(certsPath));
 
   const phpEnv = createPhpEnvironment();
 
@@ -632,7 +632,7 @@ app.on('ready', () => {
   });
 
   phpProcess.on('error', (error) => {
-    log('❌ PHP error: ' + error.message);
+    log(' PHP error: ' + error.message);
     dialog.showErrorBox('Erreur PHP', error.message);
   });
 
@@ -645,7 +645,7 @@ app.on('ready', () => {
 
 // ===== ÉVÉNEMENT: FERMETURE DE TOUTES LES FENÊTRES =====
 app.on('window-all-closed', () => {
-  log('🛑 All windows closed');
+  log(' All windows closed');
   if (syncInterval) clearInterval(syncInterval);
   if (phpProcess) phpProcess.kill();
   if (process.platform !== 'darwin') app.quit();
